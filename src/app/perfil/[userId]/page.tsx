@@ -1,0 +1,51 @@
+"use client";
+
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import AccountProfileView from "@/components/account/AccountProfileView";
+import type { PublicAthleteProfile } from "@/lib/eventReviews";
+import { resolveProfileCover } from "@/lib/profileCovers";
+import { createClient } from "@/lib/supabase/client";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export default function PublicAthleteProfilePage() {
+  const params = useParams<{ userId: string }>();
+  const router = useRouter();
+  const identifier = decodeURIComponent(String(params.userId || "")).trim();
+  const [profile, setProfile] = useState<PublicAthleteProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!identifier) return;
+    const supabase = createClient();
+    const request = UUID_PATTERN.test(identifier)
+      ? supabase.rpc("public_athlete_profile", { p_user_id: identifier })
+      : supabase.rpc("public_athlete_profile_by_username", { p_username: identifier });
+    void request.then(({ data }) => {
+      const nextProfile = data && typeof data === "object" ? data as PublicAthleteProfile : null;
+      setProfile(nextProfile);
+      setLoading(false);
+      if (UUID_PATTERN.test(identifier) && nextProfile?.username) {
+        router.replace(`/perfil/${encodeURIComponent(nextProfile.username)}`);
+      }
+    });
+  }, [identifier, router]);
+
+  if (loading) return <main className="min-h-screen bg-[#070707] px-5 py-24 text-center text-white/45">Cargando perfil…</main>;
+  if (!profile) return <main className="min-h-screen bg-[#070707] px-5 py-24 text-center"><p className="text-white/55">Este perfil no está disponible.</p><Link href="/" className="mt-5 inline-block font-bold text-[#c9f24b]">Volver a Dorsalia</Link></main>;
+
+  return <AccountProfileView
+    displayName={profile.display_name}
+    userId={profile.user_id}
+    username={profile.username}
+    avatarUrl={profile.avatar_url || null}
+    coverSrc={resolveProfileCover(profile.cover_url)}
+    bio={profile.bio}
+    reviews={profile.reviews}
+    medals={[]}
+    readOnly
+    initialTab="actividad"
+  />;
+}

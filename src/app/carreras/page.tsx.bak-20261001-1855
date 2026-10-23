@@ -1,0 +1,52 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import {
+  SPORT_CATEGORY_LABELS, cardCoverImage, eventLocationSlug, facetSlug,
+  fetchPublicRaces, formatDate, formatMinPrice, marketplaceEventUrl,
+  sortByClosestDate, sportCategory, sportCategoryLabel,
+} from "@/lib/races";
+
+export const revalidate = 60;
+export const metadata: Metadata = {
+  title: "Carreras y eventos deportivos en México",
+  description: "Encuentra carreras de running, trail, triatlón y otros eventos deportivos por ciudad y estado en México.",
+  alternates: { canonical: "https://dorsalia.run/carreras" },
+};
+
+export default async function RacesDirectoryPage() {
+  const races = sortByClosestDate((await fetchPublicRaces({ status: "all" })).filter((race) => race.is_published && race.robots_index !== false));
+  const locations = new Map<string, string>();
+  const categories = new Map<string, string>();
+  for (const race of races) {
+    const location = race.state || race.city;
+    if (location) locations.set(facetSlug(location), location);
+    categories.set(sportCategory(race), sportCategoryLabel(race));
+  }
+  const schema = {
+    "@context": "https://schema.org", "@type": "CollectionPage",
+    name: "Carreras y eventos deportivos en México", url: "https://dorsalia.run/carreras",
+    mainEntity: { "@type": "ItemList", numberOfItems: races.length, itemListElement: races.map((race, index) => ({ "@type": "ListItem", position: index + 1, name: race.name, url: marketplaceEventUrl(race) })) },
+  };
+  return <main className="min-h-screen bg-[#070707] px-4 py-12 text-white sm:px-8">
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+    <div className="mx-auto max-w-7xl">
+      <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#c5ff32]">Directorio Dorsalia</p>
+      <h1 className="mt-3 max-w-4xl text-4xl font-black leading-tight sm:text-6xl">Carreras y eventos deportivos en México</h1>
+      <p className="mt-5 max-w-3xl text-lg leading-8 text-white/65">Explora eventos por ubicación o disciplina. Las páginas se actualizan automáticamente cada vez que se publica o edita una carrera.</p>
+
+      <section className="mt-12"><h2 className="text-2xl font-bold">Buscar por ubicación</h2><div className="mt-5 flex flex-wrap gap-3">
+        {[...locations.entries()].sort((a, b) => a[1].localeCompare(b[1], "es")).map(([slug, label]) => <Link key={slug} href={`/carreras/${slug}`} className="rounded-full border border-white/15 bg-white/[.04] px-5 py-3 font-semibold hover:border-[#c5ff32] hover:text-[#c5ff32]">Carreras en {label}</Link>)}
+      </div></section>
+      <section className="mt-12"><h2 className="text-2xl font-bold">Buscar por disciplina</h2><div className="mt-5 flex flex-wrap gap-3">
+        {[...categories.entries()].sort((a, b) => a[1].localeCompare(b[1], "es")).map(([slug, label]) => <Link key={slug} href={`/carreras/${slug}`} className="rounded-full border border-white/15 bg-white/[.04] px-5 py-3 font-semibold hover:border-[#c5ff32] hover:text-[#c5ff32]">{SPORT_CATEGORY_LABELS[slug] || label}</Link>)}
+      </div></section>
+
+      <section className="mt-16"><h2 className="text-3xl font-bold">Próximos eventos</h2><div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {races.map((race) => <Link key={race.id} href={marketplaceEventUrl(race)} className="overflow-hidden rounded-[26px] border border-white/10 bg-[#111] transition hover:-translate-y-1 hover:border-[#c5ff32]/60">
+          <div className="aspect-[4/3] bg-white/5">{cardCoverImage(race) ? <img src={cardCoverImage(race)!} alt={`Portada de ${race.name}`} className="h-full w-full object-cover" /> : null}</div>
+          <div className="p-5"><div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-[#c5ff32]"><span>{sportCategoryLabel(race)}</span><span>·</span><span>{race.state || race.city || "México"}</span></div><h3 className="mt-3 text-xl font-bold leading-snug">{race.name}</h3><p className="mt-3 text-sm text-white/55">{formatDate(race.event_date)} · {formatMinPrice(race)}</p></div>
+        </Link>)}
+      </div></section>
+    </div>
+  </main>;
+}

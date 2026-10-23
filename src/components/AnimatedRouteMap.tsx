@@ -1,0 +1,582 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Map as MapLibreMap,
+  LngLatBounds,
+  Marker,
+  setWorkerUrl,
+  type GeoJSONSource,
+} from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import {
+  pathDistanceMeters,
+  pointAtDistance,
+  routeOrderedFromStart,
+  ROUTE_COLOR,
+  type RoutePoint,
+  type RouteWaypoint,
+} from "@/lib/routeMap";
+import { resolveOpenFreeMapStyle } from "@/lib/openfree-map-style";
+import GlassIconButton from "@/components/account/GlassIconButton";
+import { createRouteStory, downloadStory, loadCachedRouteStory, shareStory } from "@/lib/route-story-video";
+
+const ICON_PLAY = "/assetsdev/Play.svg";
+
+// Avoid Next/Turbopack serving HTML for the module worker (black map + MIME error)
+setWorkerUrl(
+  "https://cdn.jsdelivr.net/npm/maplibre-gl@6.9.0/dist/maplibre-gl-worker.mjs",
+);
+
+type Seg = { from: RouteWaypoint; to: RouteWaypoint; len: number; acc: number };
+
+function haversineM(a: RouteWaypoint, b: RouteWaypoint) {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function buildSegments(line: RouteWaypoint[]): { segs: Seg[]; total: number } {
+  const segs: Seg[] = [];
+  let acc = 0;
+  for (let i = 0; i < line.length - 1; i++) {
+    const from = line[i];
+    const to = line[i + 1];
+    const len = Math.max(haversineM(from, to), 0.01);
+    segs.push({ from, to, len, acc });
+    acc += len;
+  }
+  return { segs, total: acc };
+}
+
+function pointAt(segs: Seg[], total: number, t: number): RouteWaypoint {
+  if (!segs.length) return { lat: 0, lng: 0 };
+  const dist = Math.min(1, Math.max(0, t)) * total;
+  let seg = segs[segs.length - 1];
+  for (const s of segs) {
+    if (dist <= s.acc + s.len) {
+      seg = s;
+      break;
+    }
+  }
+  const local = Math.min(1, Math.max(0, (dist - seg.acc) / seg.len));
+  return {
+    lat: seg.from.lat + (seg.to.lat - seg.from.lat) * local,
+    lng: seg.from.lng + (seg.to.lng - seg.from.lng) * local,
+  };
+}
+
+function prefixAlong(
+  line: RouteWaypoint[],
+  segs: Seg[],
+  total: number,
+  t: number,
+): RouteWaypoint[] {
+  if (t <= 0) return [line[0]];
+  if (t >= 1) return line;
+  const dist = t * total;
+  const out: RouteWaypoint[] = [line[0]];
+  for (const s of segs) {
+    if (dist >= s.acc + s.len) out.push(s.to);
+    else {
+      const u = (dist - s.acc) / s.len;
+      out.push({
+        lat: s.from.lat + (s.to.lat - s.from.lat) * u,
+        lng: s.from.lng + (s.to.lng - s.from.lng) * u,
+      });
+      break;
+    }
+  }
+  return out;
+}
+
+/** Soft sine ease — avoids the mid-route speed spike of cubic ease-in-out. */
+function easeInOut(t: number) {
+  return 0.5 - 0.5 * Math.cos(Math.PI * t);
+}
+
+function toCoords(line: RouteWaypoint[]): [number, number][] {
+  return line.map((p) => [p.lng, p.lat]);
+}
+
+function lineFeature(coords: [number, number][]) {
+  return {
+    type: "Feature" as const,
+    properties: {},
+    geometry: {
+      type: "LineString" as const,
+      coordinates: coords.length >= 2 ? coords : [coords[0], coords[0]],
+    },
+  };
+}
+
+function pointFeature(lng: number, lat: number) {
+  return {
+    type: "Feature" as const,
+    properties: {},
+    geometry: { type: "Point" as const, coordinates: [lng, lat] },
+  };
+}
+
+const PLAY_MS = 20000;
+const FOLLOW_ZOOM = 16;
+/** Softer chase so the camera doesn't whip in the middle of the route. */
+const CAM_FOLLOW = 0.16;
+
+function kilometerMarkerHtml(kilometer: number) {
+  return `<div style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:18px;padding:0 6px;border:1px solid rgba(203,255,0,.75);border-radius:999px;background:rgba(17,17,17,.9);color:#cbff00;font:700 9px/1 system-ui,sans-serif;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);pointer-events:none">${kilometer} km</div>`;
+}
+
+export default function AnimatedRouteMap({
+  polyline,
+  waypoints,
+  points,
+  routeName = "Ruta",
+  eventName = "Dorsalia",
+  organizerLogoUrl,
+  distanceLabel,
+  raceEventId,
+  routeKey,
+}: {
+  polyline: RouteWaypoint[];
+  waypoints: RouteWaypoint[];
+  points: RoutePoint[];
+  routeName?: string;
+  eventName?: string;
+  organizerLogoUrl?: string | null;
+  distanceLabel?: string;
+  raceEventId?: string;
+  routeKey?: string;
+}) {
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const elRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const kilometerMarkersRef = useRef<Marker[]>([]);
+  const segsRef = useRef<{ segs: Seg[]; total: number }>({ segs: [], total: 0 });
+  const camRef = useRef({ lng: 0, lat: 0, primed: false });
+  const rafRef = useRef(0);
+  const startTsRef = useRef(0);
+  const pausedAtRef = useRef(0);
+  const playingRef = useRef(false);
+
+  const [playing, setPlaying] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [storyBusy, setStoryBusy] = useState<"download" | "share" | null>(null);
+  const [storyProgress, setStoryProgress] = useState(0);
+  const [storyFile, setStoryFile] = useState<File | null>(null);
+
+  const line = useMemo(
+    () => routeOrderedFromStart(polyline.length >= 2 ? polyline : waypoints, waypoints, points),
+    [polyline, waypoints, points],
+  );
+  const lineKey = line.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(";");
+
+  useEffect(() => {
+    setStoryFile(null);
+    setStoryProgress(0);
+  }, [lineKey, routeName]);
+
+  const getStory = useCallback(async () => {
+    if (storyFile) return storyFile;
+    const cached = await loadCachedRouteStory(raceEventId || "", routeKey || "", routeName);
+    if (cached) {
+      setStoryProgress(1);
+      setStoryFile(cached);
+      return cached;
+    }
+    const file = await createRouteStory({
+      line,
+      points,
+      routeName,
+      distanceLabel,
+      eventName,
+      organizerLogoUrl,
+      onProgress: setStoryProgress,
+    });
+    setStoryFile(file);
+    return file;
+  }, [distanceLabel, eventName, line, organizerLogoUrl, points, raceEventId, routeKey, routeName, storyFile]);
+
+  const downloadVideo = useCallback(async () => {
+    setStoryBusy("download");
+    try {
+      downloadStory(await getStory());
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "No se pudo crear el video.");
+    } finally {
+      setStoryBusy(null);
+    }
+  }, [getStory]);
+
+  const shareVideo = useCallback(async () => {
+    setStoryBusy("share");
+    try {
+      if (!storyFile) {
+        await getStory();
+        return;
+      }
+      const file = storyFile;
+      if (!(await shareStory(file, routeName))) {
+        downloadStory(file);
+        window.alert("Tu navegador no permite compartir archivos. Descargamos el MP4 para que lo subas a Historias.");
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        window.alert("iOS bloqueó la hoja de compartir. Toca nuevamente el botón Compartir.");
+      } else {
+        window.alert(error instanceof Error ? error.message : "No se pudo compartir el video.");
+      }
+    } finally {
+      setStoryBusy(null);
+    }
+  }, [getStory, routeName, storyFile]);
+
+  const stopRaf = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = 0;
+  }, []);
+
+  const setProgressGeo = useCallback(
+    (t: number) => {
+      const map = mapRef.current;
+      if (!map || line.length < 2) return;
+      const { segs, total } = segsRef.current;
+      if (!segs.length) return;
+
+      const pos = pointAt(segs, total, t);
+      const drawn = prefixAlong(line, segs, total, t);
+      const progress = map.getSource("progress") as GeoJSONSource | undefined;
+      const runner = map.getSource("runner") as GeoJSONSource | undefined;
+      progress?.setData(lineFeature(toCoords(drawn)));
+      runner?.setData(pointFeature(pos.lng, pos.lat));
+      return pos;
+    },
+    [line],
+  );
+
+  const applyFrame = useCallback(
+    (tRaw: number) => {
+      const map = mapRef.current;
+      if (!map || line.length < 2) return;
+      const t = easeInOut(Math.min(1, Math.max(0, tRaw)));
+      const pos = setProgressGeo(t);
+      if (!pos) return;
+
+      const cam = camRef.current;
+      if (!cam.primed) {
+        cam.lng = pos.lng;
+        cam.lat = pos.lat;
+        cam.primed = true;
+      } else {
+        cam.lng += (pos.lng - cam.lng) * CAM_FOLLOW;
+        cam.lat += (pos.lat - cam.lat) * CAM_FOLLOW;
+      }
+
+      // Continuous GPU camera (Uber-style) — no stepped deadzone pans
+      map.jumpTo({
+        center: [cam.lng, cam.lat],
+        zoom: FOLLOW_ZOOM,
+        bearing: 0,
+        pitch: 0,
+      });
+    },
+    [line.length, setProgressGeo],
+  );
+
+  const showOverview = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || line.length < 2) return;
+    camRef.current.primed = false;
+    setProgressGeo(1);
+    const bounds = new LngLatBounds();
+    for (const p of line) bounds.extend([p.lng, p.lat]);
+    map.fitBounds(bounds, { padding: 56, maxZoom: 15, duration: 0 });
+  }, [line, setProgressGeo]);
+
+  const tick = useCallback(
+    (now: number) => {
+      if (!playingRef.current) return;
+      const t = Math.min(1, (now - startTsRef.current) / PLAY_MS);
+      applyFrame(t);
+      if (t >= 1) {
+        playingRef.current = false;
+        setPlaying(false);
+        pausedAtRef.current = 1;
+        stopRaf();
+        mapRef.current?.dragPan.enable();
+        showOverview();
+        return;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    },
+    [applyFrame, showOverview, stopRaf],
+  );
+
+  const play = useCallback(async () => {
+    if (line.length < 2 || !mapRef.current || !ready) return;
+    const map = mapRef.current;
+    const { segs, total } = segsRef.current;
+
+    if (pausedAtRef.current >= 1) {
+      pausedAtRef.current = 0;
+    }
+
+    map.dragPan.disable();
+    const startPos = pointAt(segs, total, pausedAtRef.current || 0);
+    camRef.current = { lng: startPos.lng, lat: startPos.lat, primed: true };
+    map.jumpTo({ center: [startPos.lng, startPos.lat], zoom: FOLLOW_ZOOM });
+    setProgressGeo(pausedAtRef.current || 0);
+
+    // Let a frame of tiles settle at follow zoom
+    await new Promise((r) => setTimeout(r, 180));
+    if (!mapRef.current) return;
+
+    startTsRef.current = performance.now() - pausedAtRef.current * PLAY_MS;
+    playingRef.current = true;
+    setPlaying(true);
+    stopRaf();
+    rafRef.current = requestAnimationFrame(tick);
+  }, [line.length, ready, setProgressGeo, stopRaf, tick]);
+
+  const pause = useCallback(() => {
+    if (!playingRef.current) return;
+    const t = Math.min(1, (performance.now() - startTsRef.current) / PLAY_MS);
+    pausedAtRef.current = t;
+    playingRef.current = false;
+    setPlaying(false);
+    stopRaf();
+    mapRef.current?.dragPan.enable();
+  }, [stopRaf]);
+
+  const toggle = useCallback(() => {
+    if (playingRef.current) pause();
+    else void play();
+  }, [pause, play]);
+
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el || line.length < 2) return;
+    let cancelled = false;
+    let map: MapLibreMap | null = null;
+    let ro: ResizeObserver | null = null;
+
+    segsRef.current = buildSegments(line);
+    const fullCoords = toCoords(line);
+
+    void (async () => {
+      const style = await resolveOpenFreeMapStyle("dark");
+      if (cancelled) return;
+
+      map = new MapLibreMap({
+        container: el,
+        style: style as never,
+        center: [line[0].lng, line[0].lat],
+        zoom: 14,
+        attributionControl: false,
+        fadeDuration: 0,
+        dragRotate: false,
+        pitchWithRotate: false,
+        touchPitch: false,
+      });
+      if (cancelled) {
+        map.remove();
+        return;
+      }
+      mapRef.current = map;
+
+      const boot = () => {
+        if (cancelled || !map) return;
+        map.resize();
+
+        if (!map.getSource("ghost")) {
+          map.addSource("ghost", {
+            type: "geojson",
+            data: lineFeature(fullCoords),
+          });
+          map.addLayer({
+            id: "ghost-line",
+            type: "line",
+            source: "ghost",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": "#3f3f46", "line-width": 4, "line-opacity": 0.9 },
+          });
+
+          map.addSource("progress", {
+            type: "geojson",
+            data: lineFeature([fullCoords[0], fullCoords[0]]),
+          });
+          map.addLayer({
+            id: "progress-line",
+            type: "line",
+            source: "progress",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": ROUTE_COLOR, "line-width": 5 },
+          });
+
+          map.addSource("runner", {
+            type: "geojson",
+            data: pointFeature(line[0].lng, line[0].lat),
+          });
+          map.addLayer({
+            id: "runner-halo",
+            type: "circle",
+            source: "runner",
+            paint: {
+              "circle-radius": 7,
+              "circle-color": "#000000",
+            },
+          });
+          map.addLayer({
+            id: "runner-dot",
+            type: "circle",
+            source: "runner",
+            paint: {
+              "circle-radius": 5,
+              "circle-color": ROUTE_COLOR,
+            },
+          });
+        }
+
+        const routeDistance = pathDistanceMeters(line);
+        kilometerMarkersRef.current = [];
+        for (let kilometer = 1; kilometer <= Math.floor(routeDistance / 1000); kilometer++) {
+          const position = pointAtDistance(line, kilometer * 1000);
+          if (!position) continue;
+          const markerElement = document.createElement("div");
+          markerElement.innerHTML = kilometerMarkerHtml(kilometer);
+          kilometerMarkersRef.current.push(
+            new Marker({ element: markerElement, anchor: "left", offset: [7, 0] })
+              .setLngLat([position.lng, position.lat])
+              .addTo(map),
+          );
+        }
+
+        const bounds = new LngLatBounds();
+        for (const p of line) bounds.extend([p.lng, p.lat]);
+        map.resize();
+        map.fitBounds(bounds, { padding: 56, maxZoom: 15, duration: 0 });
+        requestAnimationFrame(() => {
+          map?.resize();
+          setReady(true);
+        });
+      };
+
+      if (map.loaded()) boot();
+      else map.once("load", boot);
+
+      map.on("error", (e) => {
+        console.error("[rutas-map]", e?.error || e);
+      });
+
+      if (shellRef.current && typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(() => {
+          map?.resize();
+        });
+        ro.observe(shellRef.current);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      playingRef.current = false;
+      stopRaf();
+      kilometerMarkersRef.current.forEach((marker) => marker.remove());
+      kilometerMarkersRef.current = [];
+      ro?.disconnect();
+      map?.remove();
+      mapRef.current = null;
+      setReady(false);
+      setPlaying(false);
+      pausedAtRef.current = 0;
+      camRef.current.primed = false;
+    };
+  }, [lineKey, line, stopRaf]);
+
+  if (line.length < 2) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-black text-sm text-white/40">
+        Sin trazado GPS
+      </div>
+    );
+  }
+
+  return (
+    <div ref={shellRef} className="relative h-full w-full overflow-hidden bg-black">
+      <div
+        ref={elRef}
+        className="absolute inset-0 h-full w-full bg-black [&_.maplibregl-map]:!h-full [&_.maplibregl-map]:!w-full [&_.maplibregl-canvas]:outline-none"
+      />
+
+      {!playing ? (
+        <div className="absolute bottom-5 left-1/2 z-[500] flex -translate-x-1/2 items-center gap-2">
+          {storyFile && !storyBusy ? (
+            <span className="absolute bottom-[58px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/75 px-3 py-1.5 text-[10px] font-bold text-white backdrop-blur-md">
+              Video listo · toca compartir
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void downloadVideo()}
+            disabled={Boolean(storyBusy)}
+            aria-label="Descargar video de la ruta"
+            title="Descargar video de la ruta"
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-md transition hover:bg-black/75 disabled:opacity-55"
+          >
+            {storyBusy === "download" ? (
+              <span className="text-[9px] font-bold tabular-nums">{Math.round(storyProgress * 100)}%</span>
+            ) : (
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <path d="M12 3v12M7 10l5 5 5-5M5 21h14" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+          <GlassIconButton
+            aria-label="Reproducir ruta"
+            onClick={toggle}
+            disabled={!ready}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ICON_PLAY} alt="" width={24} height={24} />
+          </GlassIconButton>
+          <button
+            type="button"
+            onClick={() => void shareVideo()}
+            disabled={Boolean(storyBusy)}
+            aria-label="Compartir video de la ruta"
+            title="Compartir video de la ruta"
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-[#cbff00]/70 bg-[#cbff00] text-black shadow-lg transition hover:brightness-110 disabled:opacity-55"
+          >
+            {storyBusy === "share" ? (
+              <span className="text-[9px] font-black tabular-nums">{Math.round(storyProgress * 100)}%</span>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" />
+                <path d="M8.4 13.2l7.2 4.1M15.6 6.7l-7.2 4.1" strokeLinecap="round" />
+              </svg>
+            )}
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label="Pausar"
+          className="absolute bottom-5 left-1/2 z-[500] flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full bg-black/50 text-white/80 opacity-0 transition hover:opacity-100 focus:opacity-100"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <rect x="6" y="5" width="4" height="14" rx="1" />
+            <rect x="14" y="5" width="4" height="14" rx="1" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}

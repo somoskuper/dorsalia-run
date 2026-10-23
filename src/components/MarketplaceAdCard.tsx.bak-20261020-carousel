@@ -1,0 +1,48 @@
+import type { MarketplaceAdCard as Ad } from "@/lib/marketplaceAds";
+
+export default function MarketplaceAdCard({ ad, variant = "card" }: { ad: Ad; variant?: "card" | "hero" }) {
+  const href = /^(https?:\/\/|\/(?!\/))/i.test(ad.cta_url) ? ad.cta_url : "#";
+  if (variant === "hero") return (
+    <header className="flex h-full min-h-[460px] flex-col overflow-hidden rounded-[28px] text-black" style={{ backgroundColor: ad.background_color }}>
+      {ad.image_url ? <div className="relative h-[clamp(150px,25vw,210px)] shrink-0 overflow-hidden bg-black/10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={ad.image_url} alt={ad.image_alt || ""} fetchPriority="high" className="h-full w-full object-cover object-center" />
+      </div> : null}
+      <div className="flex flex-1 flex-col px-6 pb-6 pt-5 sm:px-8 sm:pb-8 sm:pt-7 lg:px-10">
+        <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-black/65">{ad.footer_primary || "Dorsalia.run · México"}</p>
+        <h1 className="mt-3 max-w-[17ch] text-balance text-[clamp(1.9rem,4.2vw,3.6rem)] font-black leading-[1.03] tracking-[-0.045em]">{ad.title}</h1>
+        {ad.description ? <p className="mt-3 max-w-[62ch] text-pretty text-[clamp(0.94rem,1.5vw,1.15rem)] leading-relaxed text-black/70">{ad.description}</p> : null}
+        <div className="mt-auto flex flex-wrap items-end justify-between gap-4 pt-6">
+          <p className="text-sm font-medium text-black/60">{ad.footer_secondary}</p>
+          {ad.cta_label && href !== "#" ? <a href={href} style={{ color: "#fff" }} className="rounded-[18px] bg-[#121212] px-6 py-3.5 text-base font-bold transition hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black">{ad.cta_label}</a> : null}
+        </div>
+      </div>
+    </header>
+  );
+  return (
+    <article className="w-full" style={{ containerType: "inline-size" }}>
+      <div className="mb-3 flex min-h-[44px] items-center">
+        <span className="rounded-full border border-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Anuncio</span>
+      </div>
+      <div className="flex aspect-[4/5] flex-col overflow-hidden rounded-[28px] text-black" style={{ backgroundColor: ad.background_color }}>
+        {ad.image_url ? <div className="relative h-1/2 shrink-0 overflow-hidden bg-black/10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={ad.image_url} alt={ad.image_alt || ad.title} loading="lazy" className="h-full w-full object-cover object-bottom" />
+        </div> : null}
+        <div className="flex min-h-0 flex-1 flex-col justify-between">
+          <div className="min-h-0 px-[8%] pt-[7%]">
+            <h2 className="line-clamp-3 text-[clamp(1.35rem,7cqw,2.25rem)] font-bold leading-[1.08] tracking-[-0.03em]">{ad.title}</h2>
+            {ad.description ? <p className="mt-2 line-clamp-2 text-[clamp(0.9rem,4cqw,1.25rem)] leading-snug text-black/55">{ad.description}</p> : null}
+          </div>
+          <div className="flex items-end justify-between gap-2 border-t border-black/10 px-[8%] py-[5%]">
+            <div className="min-w-0 text-[clamp(0.75rem,3.5cqw,1rem)] leading-snug text-black/60">
+              <p className="truncate font-semibold">{ad.footer_primary}</p>
+              <p className="truncate">{ad.footer_secondary}</p>
+            </div>
+            {ad.cta_label && href !== "#" ? <a href={href} style={{ color: "#fff" }} className="shrink-0 rounded-[18px] bg-[#121212] px-[5%] py-[4%] text-center text-[clamp(0.85rem,4.3cqw,1.25rem)] font-bold transition hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black">{ad.cta_label}</a> : null}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}

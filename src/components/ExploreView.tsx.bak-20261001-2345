@@ -1,0 +1,779 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useAthleteAuth } from "@/components/AthleteAuthProvider";
+import ActivityFeed from "@/components/activity/ActivityFeed";
+import SocialNotifications, { type SocialNotification } from "@/components/activity/SocialNotifications";
+import { createClient } from "@/lib/supabase/client";
+import { useMarketplaceSearch } from "@/components/MarketplaceSearchProvider";
+import SearchFiltersSheet from "@/components/SearchFiltersSheet";
+import { useSavedRaces } from "@/components/SavedRacesProvider";
+import Button from "@/components/ui/Button";
+import GlassPanel from "@/components/ui/GlassPanel";
+import type { PublicRace } from "@/lib/races";
+import {
+  billboardSlug,
+  marketplaceEventUrl,
+  cardCoverImage,
+  formatDateTime,
+  formatMinPrice,
+  isEventFree,
+  isFinalized,
+  minPrice,
+  organizerImage,
+  organizerLabel,
+  organizerSlugFrom,
+  placeLabel,
+  PORTAL_URL,
+  sortByClosestDate,
+} from "@/lib/races";
+import {
+  countActiveFilters,
+  filterRaces,
+  filtersFromSearchParams,
+  priceBounds,
+  uniqueCities,
+  writeFiltersToSearchParams,
+} from "@/lib/raceSearch";
+import {
+  DESK_DIVIDER_H,
+  DESK_FILTER_H,
+  DESK_FILTER_W,
+  DESK_SEARCH_H,
+  DESK_SEARCH_PL,
+  DESK_SEARCH_PY,
+  DESK_SEARCH_RADIUS,
+} from "@/lib/appChrome";
+
+const ICON_SAVED = "/branding/guardado-icon.svg";
+const ICON_SHARE = "/branding/compartir-icon.svg";
+const ICON_FILTERS = "/branding/filtros-icon.svg";
+/** Temporarily hide divider + filters icon in the search bar. */
+const SHOW_SEARCH_FILTERS = false;
+
+const BANNER_MOBILE = "/assetsdev/banner-home-dorsalia-mobile.webp?v=20260921";
+const BANNER_DESK = "/assetsdev/banner-home-dorsalia-desk.webp?v=20260921";
+const BANNER_ALT =
+  "Organiza, crea, opera y vende — Crea tu evento gratis en Dorsalia";
+
+type FilterTab = "eventos" | "para_ti" | "actividad";
+type HubFilter = "upcoming" | "paid" | "free" | "finished" | "all";
+
+export type SeoHubContent = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  eventCount: number;
+  longDescription: string;
+  breadcrumbs: Array<{ label: string; href?: string }>;
+  relatedLinks: Array<{ label: string; href: string }>;
+};
+
+const FILTER_TABS: { id: FilterTab; label: string }[] = [
+  { id: "eventos", label: "Eventos" },
+  { id: "para_ti", label: "Para ti" },
+  { id: "actividad", label: "Actividad" },
+];
+
+const HUB_FILTERS: { id: HubFilter; label: string }[] = [
+  { id: "upcoming", label: "Próximos" },
+  { id: "paid", label: "De pago" },
+  { id: "free", label: "Gratis" },
+  { id: "finished", label: "Finalizados" },
+  { id: "all", label: "Todos" },
+];
+
+function SeoHubHero({ content }: { content: SeoHubContent }) {
+  return (
+    <section className="relative mb-[30px] min-h-[360px] overflow-hidden rounded-[28px] border border-white/10 bg-[#050505] px-6 py-7 md:min-h-[300px] md:px-12 md:py-10">
+      <div className="absolute -right-20 -top-32 h-[420px] w-[420px] rounded-full bg-[#c9f24b]/20 blur-[90px]" aria-hidden />
+      <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#c9f24b]/[0.08] to-transparent" aria-hidden />
+      <div className="relative z-10 flex h-full max-w-4xl flex-col justify-between">
+        <nav aria-label="Migas de pan" className="flex flex-wrap items-center gap-2 text-xs text-white/45">
+          {content.breadcrumbs.map((item, index) => (
+            <span key={`${item.label}-${index}`} className="flex items-center gap-2">
+              {index ? <span aria-hidden>/</span> : null}
+              {item.href ? <a href={item.href} className="transition hover:text-[#c9f24b]">{item.label}</a> : <span className="text-white/70">{item.label}</span>}
+            </span>
+          ))}
+        </nav>
+        <div className="mt-12 md:mt-8">
+          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#c9f24b]">{content.eyebrow}</p>
+          <h1 className="mt-3 max-w-4xl text-balance text-[clamp(2.25rem,7vw,5.25rem)] font-black leading-[0.95] tracking-[-0.04em] text-white">{content.title}</h1>
+          <p className="mt-5 max-w-3xl text-pretty text-base leading-7 text-white/62 md:text-lg">{content.description}</p>
+          <p className="mt-5 text-sm font-extrabold text-[#c9f24b]">{content.eventCount} evento{content.eventCount === 1 ? "" : "s"} disponible{content.eventCount === 1 ? "" : "s"}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HubFilterButtons({ active, onChange }: { active: HubFilter; onChange: (id: HubFilter) => void }) {
+  return (
+    <div className="-mx-5 flex flex-nowrap items-center gap-2 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
+      {HUB_FILTERS.map((tab) => active === tab.id ? (
+        <Button key={tab.id} variant="primary" onClick={() => onChange(tab.id)} className="shrink-0">{tab.label}</Button>
+      ) : (
+        <GhostChip key={tab.id} onClick={() => onChange(tab.id)}>{tab.label}</GhostChip>
+      ))}
+    </div>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      className="shrink-0 opacity-50"
+      aria-hidden
+    >
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+
+function sortByFilter(races: PublicRace[]): PublicRace[] {
+  return sortByClosestDate(races);
+}
+
+/** Ghost chip — same ds-btn hit area/padding, no visible border. */
+function GhostChip({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="ds-btn shrink-0 border-transparent bg-transparent text-white hover:bg-transparent"
+    >
+      {children}
+    </button>
+  );
+}
+
+function FilterButtons({
+  active,
+  onChange,
+  unreadCount,
+}: {
+  active: FilterTab;
+  onChange: (id: FilterTab) => void;
+  unreadCount: number;
+}) {
+  return (
+    <div className="-mx-5 flex flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:overflow-visible md:px-0">
+      {FILTER_TABS.map((tab) => {
+        const isActive = active === tab.id;
+        if (isActive) {
+          return (
+            <Button
+              key={tab.id}
+              variant="primary"
+              onClick={() => onChange(tab.id)}
+              className="shrink-0"
+            >
+              {tab.label}{tab.id === "actividad" && unreadCount > 0 ? <span className="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full bg-[#b3dc00] px-1 text-[11px] text-black">{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
+            </Button>
+          );
+        }
+        return (
+          <GhostChip key={tab.id} onClick={() => onChange(tab.id)}>
+            {tab.label}{tab.id === "actividad" && unreadCount > 0 ? <span className="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full bg-[#c9f24b] px-1 text-[11px] font-bold text-black">{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
+          </GhostChip>
+        );
+      })}
+    </div>
+  );
+}
+
+function useDebouncedQuerySync(value: string, delayMs = 280) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const timer = useRef<number | null>(null);
+  const skipFirst = useRef(true);
+
+  useEffect(() => {
+    if (skipFirst.current) {
+      skipFirst.current = false;
+      return;
+    }
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      const current = (searchParams.get("q") || "").trim();
+      if (current === value.trim()) return;
+      const base = filtersFromSearchParams(new URLSearchParams(searchParams.toString()));
+      const params = writeFiltersToSearchParams(new URLSearchParams(searchParams.toString()), {
+        ...base,
+        q: value.trim(),
+      });
+      const e = searchParams.get("e");
+      if (e) params.set("e", e);
+      const status = searchParams.get("status");
+      if (status) params.set("status", status);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }, delayMs);
+    return () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    };
+  }, [value, delayMs, pathname, router, searchParams]);
+}
+
+function MobileSearch({ initialQ }: { initialQ: string }) {
+  const { toggleFilters } = useMarketplaceSearch();
+  const searchParams = useSearchParams();
+  const urlQ = searchParams.get("q") || "";
+  const [value, setValue] = useState(initialQ || urlQ);
+  const activeCount = countActiveFilters(
+    filtersFromSearchParams(new URLSearchParams(searchParams.toString())),
+  );
+
+  useEffect(() => {
+    setValue(urlQ);
+  }, [urlQ]);
+
+  useDebouncedQuerySync(value);
+
+  return (
+    <GlassPanel
+      radius={DESK_SEARCH_RADIUS}
+      className="w-full md:hidden"
+      style={{ height: DESK_SEARCH_H }}
+      glassProps={{ glassColor: "rgba(255,255,255,0)" }}
+    >
+      <div className="flex h-full w-full items-center">
+        <div
+          className={`flex h-full items-center ${SHOW_SEARCH_FILTERS ? "w-[70%] pr-2" : "w-full"}`}
+          style={{
+            paddingLeft: DESK_SEARCH_PL,
+            paddingRight: SHOW_SEARCH_FILTERS ? undefined : DESK_SEARCH_PL,
+            paddingTop: DESK_SEARCH_PY,
+            paddingBottom: DESK_SEARCH_PY,
+          }}
+        >
+          <input
+            name="q"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Buscar eventos o usuarios…"
+            className="w-full bg-transparent text-left text-[1rem] leading-none text-white outline-none placeholder:text-[#888888]"
+            aria-label="Buscar eventos"
+            autoComplete="off"
+          />
+        </div>
+        {SHOW_SEARCH_FILTERS ? (
+          <>
+            <span
+              className="w-[2px] shrink-0 self-center bg-[#888888]"
+              style={{ height: DESK_DIVIDER_H }}
+              aria-hidden
+            />
+            <div
+              className="relative flex h-full w-[30%] items-center justify-end pl-2"
+              style={{
+                paddingRight: DESK_SEARCH_PL,
+                paddingTop: DESK_SEARCH_PY,
+                paddingBottom: DESK_SEARCH_PY,
+              }}
+            >
+              <button
+                type="button"
+                data-mp-filters-trigger
+                onClick={toggleFilters}
+                className="grid place-items-center opacity-80"
+                aria-label="Abrir filtros"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ICON_FILTERS}
+                  alt=""
+                  width={DESK_FILTER_W}
+                  height={DESK_FILTER_H}
+                  style={{ width: DESK_FILTER_W, height: DESK_FILTER_H }}
+                />
+                {activeCount > 0 ? (
+                  <span className="absolute right-2 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#c5e500] px-1 text-[10px] font-bold text-black">
+                    {activeCount}
+                  </span>
+                ) : null}
+              </button>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </GlassPanel>
+  );
+}
+
+function EventCard({
+  race,
+  onOpen,
+  saved,
+  onToggleSave,
+  index = 0,
+}: {
+  race: PublicRace;
+  onOpen: (race: PublicRace) => void;
+  saved: boolean;
+  onToggleSave: (id: string) => void;
+  index?: number;
+}) {
+  const img = cardCoverImage(race);
+  const { user } = useAthleteAuth();
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(!img);
+  const { date, time } = formatDateTime(race.event_date);
+  const dateLabel = [date, time].filter(Boolean).join(", ");
+  const done = isFinalized(race);
+  const badgeLabel = done ? "Finalizado" : formatMinPrice(race);
+  const place = placeLabel(race);
+  const organizerSlug = organizerSlugFrom(race);
+
+  useEffect(() => {
+    setImageLoaded(!img);
+    const frame = window.requestAnimationFrame(() => {
+      if (imageRef.current?.complete && imageRef.current.naturalWidth > 0) setImageLoaded(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [img]);
+
+  async function share(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = marketplaceEventUrl(race);
+    if (!url) return;
+    if (user) {
+      window.dispatchEvent(new CustomEvent("dorsalia:create-post", { detail: { id: race.id, name: race.name, slug: billboardSlug(race), cover: img } }));
+      return;
+    }
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: race.name, text: race.name, url });
+        return;
+      }
+    } catch {
+      /* user cancelled or unsupported */
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <div
+      className="group mp-card mp-rise-in w-full text-left"
+      style={{ animationDelay: `${Math.min(index, 12) * 45}ms` }}
+    >
+      <div className="mb-3 flex h-[29px] items-center gap-2">
+        <a href={organizerSlug ? `/org/${organizerSlug}` : marketplaceEventUrl(race)} className="flex min-w-0 flex-1 items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#c9f24b]" aria-label={`Ver perfil de ${organizerLabel(race)}`}>
+        {organizerImage(race) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={organizerImage(race)!}
+            alt=""
+            width={29}
+            height={29}
+            className="h-[29px] w-[29px] shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-full bg-white/10 text-[10px] font-semibold text-white/50">
+            {organizerLabel(race).slice(0, 1).toUpperCase()}
+          </span>
+        )}
+
+        <div className="flex h-[29px] min-w-0 flex-1 flex-col justify-center">
+          <p className="truncate text-[16px] leading-[16px] text-white">
+            {organizerLabel(race)}
+          </p>
+          {place ? (
+            <p className="mt-[3px] truncate text-[10px] leading-[10px] text-white/50">
+              {place}
+            </p>
+          ) : null}
+        </div>
+        </a>
+
+        <div className="flex h-[29px] shrink-0 items-center" style={{ gap: 7 }}>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleSave(race.id);
+            }}
+            className={`grid h-[29px] w-[29px] place-items-center transition-opacity hover:opacity-100 ${
+              saved ? "opacity-100" : "opacity-50"
+            }`}
+            aria-label={saved ? `Quitar ${race.name} de guardados` : `Guardar ${race.name}`}
+            aria-pressed={saved}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={ICON_SAVED}
+              alt=""
+              width={29}
+              height={29}
+              className="h-[29px] w-[29px]"
+              style={
+                saved
+                  ? { filter: "brightness(0) saturate(100%) invert(89%) sepia(64%) saturate(548%) hue-rotate(18deg) brightness(103%) contrast(101%)" }
+                  : undefined
+              }
+            />
+          </button>
+          <button
+            type="button"
+            onClick={share}
+            className="grid h-[29px] w-[29px] place-items-center opacity-50 transition-opacity hover:opacity-80"
+            aria-label={`Compartir ${race.name}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ICON_SHARE} alt="" width={29} height={29} className="h-[29px] w-[29px]" />
+          </button>
+        </div>
+      </div>
+
+      <a href={marketplaceEventUrl(race)} onClick={(event) => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); onOpen(race); }} className="block w-full text-left">
+        <div className="mp-card-poster">
+          {img ? (
+            <>
+              {!imageLoaded ? <div className="absolute inset-0 z-[2] grid place-items-center" role="status" aria-label="Cargando portada"><span className="h-9 w-9 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" /></div> : null}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={imageRef}
+                src={img}
+                alt={race.name}
+                loading={index < 3 ? "eager" : "lazy"}
+                decoding="async"
+                fetchPriority={index === 0 ? "high" : "auto"}
+                onLoad={() => setImageLoaded(true)}
+                className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.05] ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+              />
+            </>
+          ) : (
+            <div className="absolute inset-0 grid place-items-center px-6 text-center font-akira text-white/30">
+              {race.name}
+            </div>
+          )}
+
+          <div className="absolute z-10" style={{ top: 15, right: 15 }}>
+            <span className="mp-card-badge block whitespace-nowrap px-[10px] py-[5px] text-[10px] font-bold uppercase tracking-[0.08em] text-white">
+              {badgeLabel}
+            </span>
+          </div>
+
+          <div
+            className="mp-card-info-glass absolute bottom-[15px] left-[15px] right-[15px] z-10 p-[15px]"
+          >
+            <h2 className="mp-card-title font-akira text-[20px] leading-[1.1] text-white line-clamp-2">
+              {race.name}
+            </h2>
+            <p className="mp-card-meta mt-2 flex items-center gap-1.5 text-[12px] leading-none text-white/90">
+              <CalendarIcon />
+              <span className="truncate">{dateLabel}</span>
+            </p>
+          </div>
+        </div>
+      </a>
+    </div>
+  );
+}
+
+function ProgressiveEventGrid({ races, onOpen, defer = false }: { races: PublicRace[]; onOpen: (race: PublicRace) => void; defer?: boolean }) {
+  const { isSaved, toggleSave } = useSavedRaces();
+  const [visibleCount, setVisibleCount] = useState(defer ? 0 : 6);
+  const sentinel = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => setVisibleCount(defer ? 0 : 6), [races, defer]);
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || visibleCount >= races.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setVisibleCount((count) => Math.min(count + 6, races.length));
+    }, { rootMargin: "320px 0px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [races.length, visibleCount]);
+
+  return <>
+    <div className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0 md:gap-6 lg:grid-cols-3 lg:gap-8">
+      {races.slice(0, visibleCount).map((race, index) => <div key={race.id} className="w-[84vw] max-w-[360px] shrink-0 snap-start sm:w-auto sm:max-w-none sm:shrink"><EventCard race={race} index={index} onOpen={onOpen} saved={isSaved(race.id)} onToggleSave={(id) => { void toggleSave(id); }} /></div>)}
+      {visibleCount < races.length ? <div ref={sentinel} className="grid h-full min-h-32 w-14 shrink-0 snap-end place-items-center sm:col-span-full sm:h-20 sm:w-full" aria-label="Cargando más eventos"><span className="h-7 w-7 animate-spin rounded-full border-2 border-white/15 border-t-[#c9f24b]" /></div> : null}
+    </div>
+  </>;
+}
+
+function normDiscovery(value: string | null | undefined) {
+  return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+function discoveryScore(race: PublicRace) {
+  const reviews = Number(race.review_count) || 0;
+  const rating = Number(race.rating_average) || 0;
+  const comments = (Number(race.review_comment_count) || 0) + (Number(race.community_comment_count) || 0);
+  return (reviews ? rating * 60 : 0) + reviews * 22 + comments * 7 + (Number(race.share_count) || 0) * 10 + (Number(race.save_count) || 0) * 8 + Math.log1p(Number(race.view_count) || 0) * 12;
+}
+
+function HomeEventSections({ races, residence, onOpen }: { races: PublicRace[]; residence: string; onOpen: (race: PublicRace) => void }) {
+  const best = useMemo(() => [...races].sort((a, b) => discoveryScore(b) - discoveryScore(a) || (Date.parse(a.event_date || "") || Number.MAX_SAFE_INTEGER) - (Date.parse(b.event_date || "") || Number.MAX_SAFE_INTEGER)), [races]);
+  const upcoming = useMemo(() => {
+    const home = normDiscovery(residence);
+    return sortByClosestDate(races.filter((race) => !isFinalized(race))).sort((a, b) => {
+      if (!home) return 0;
+      const aNear = home.includes(normDiscovery(a.city)) || home.includes(normDiscovery(a.state)) || normDiscovery(placeLabel(a)).includes(home);
+      const bNear = home.includes(normDiscovery(b.city)) || home.includes(normDiscovery(b.state)) || normDiscovery(placeLabel(b)).includes(home);
+      return Number(bNear) - Number(aNear);
+    });
+  }, [races, residence]);
+  const newest = useMemo(() => [...races].sort((a, b) => Date.parse(b.updated_at || "") - Date.parse(a.updated_at || "")), [races]);
+  const sections = [
+    { id: "top", title: "Mejores valorados", items: best },
+    { id: "near", title: residence ? `Próximos eventos cerca de ti` : "Próximos eventos", items: upcoming },
+    { id: "new", title: "Nuevos eventos", items: newest },
+  ].filter((section) => section.items.length);
+  return <div className="space-y-14">{sections.map((section, index) => <section key={section.id} aria-labelledby={`home-${section.id}`}><h2 id={`home-${section.id}`} className="mb-5 text-2xl font-black tracking-[-0.02em] text-white md:mb-6 md:text-3xl">{section.title}</h2><ProgressiveEventGrid races={section.items} onOpen={onOpen} defer={index > 0} /></section>)}</div>;
+}
+
+function HomeDirectoryLinks({ races }: { races: PublicRace[] }) {
+  const locations = new Map<string, string>(); const categories = new Map<string, string>();
+  for (const race of races) {
+    const location = race.state || race.city;
+    const locationSlug = normDiscovery(location).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (location && locationSlug) locations.set(locationSlug, location);
+    const category = String(race.sport_category || "running");
+    categories.set(category, category === "running" ? "Running" : category === "trail" ? "Trail running" : category === "triathlon" ? "Triatlón" : category === "cycling" ? "Ciclismo" : category === "swimming" ? "Natación" : category === "walking" ? "Caminata" : category.replace(/(^|-)\w/g, (value) => value.replace("-", " ").toUpperCase()));
+  }
+  const groups = [
+    { title: "Carreras por ubicación", links: [...locations.entries()].map(([slug, label]) => ({ href: `/carreras/${slug}`, label: `Carreras en ${label}` })) },
+    { title: "Eventos por disciplina", links: [...categories.entries()].map(([slug, label]) => ({ href: `/carreras/${slug}`, label })) },
+    { title: "Buscar por precio", links: [{ href: "/?pmax=0", label: "Eventos gratis" }, { href: "/?pmin=1&pmax=300", label: "Hasta $300" }, { href: "/?pmin=301&pmax=500", label: "$301 a $500" }, { href: "/?pmin=501", label: "Más de $500" }, { href: "/carreras", label: "Todos los eventos" }] },
+  ];
+  return <nav aria-label="Directorio de carreras" className="mt-20 border-t border-white/10 pt-10"><h2 className="text-2xl font-black text-white">Explora más carreras</h2><p className="mt-2 text-sm text-white/50">Encuentra eventos por ciudad, disciplina y rango de precio.</p><div className="mt-8 grid gap-8 md:grid-cols-3">{groups.map((group) => <section key={group.title}><h3 className="text-xs font-bold uppercase tracking-[0.14em] text-white/40">{group.title}</h3><div className="mt-4 flex flex-wrap gap-2">{group.links.map((link) => <a key={link.href} href={link.href} className="rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white/75 transition hover:border-[#c9f24b] hover:text-[#c9f24b]">{link.label}</a>)}</div></section>)}</div></nav>;
+}
+
+type UserResult = { user_id: string; username: string; display_name: string; avatar_url?: string | null; bio?: string | null };
+
+function UserSearchResults({ query }: { query: string }) {
+  const [people, setPeople] = useState<UserResult[]>([]);
+  useEffect(() => {
+    let active = true;
+    if (query.trim().length < 2) { setPeople([]); return; }
+    import("@/lib/supabase/client").then(({ createClient }) => createClient().rpc("public_user_search", { p_query: query.trim(), p_limit: 12 })).then(({ data }) => { if (active) setPeople(Array.isArray(data) ? data as UserResult[] : []); });
+    return () => { active = false; };
+  }, [query]);
+  if (!people.length) return null;
+  return <section className="mb-7"><h2 className="mb-3 text-sm font-semibold text-white/50">Personas</h2><div className="space-y-1">{people.map((person) => <a key={person.user_id} href={`/perfil/${person.username}`} className="flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-white/[0.06]">{person.avatar_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={person.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-full bg-white/10 font-bold">{person.display_name.slice(0, 1)}</span>}<span className="min-w-0"><strong className="block truncate text-sm text-white">{person.display_name}</strong><span className="block truncate text-xs text-white/45">@{person.username}</span></span></a>)}</div></section>;
+}
+
+function CompactEventCard({ race, onOpen }: { race: PublicRace; onOpen: (race: PublicRace) => void }) {
+  const image = cardCoverImage(race);
+  const [loaded, setLoaded] = useState(!image);
+  return <a href={marketplaceEventUrl(race)} onClick={(event) => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); onOpen(race); }} className="flex w-full items-center gap-3 rounded-2xl p-2 text-left transition-colors hover:bg-white/[0.06]">
+    <span className="relative h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white/[0.05]">{image ? <>{!loaded ? <span className="absolute inset-0 grid place-items-center"><span className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" /></span> : null}{/* eslint-disable-next-line @next/next/no-img-element */}<img src={image} alt="" onLoad={() => setLoaded(true)} className={`h-full w-full object-cover ${loaded ? "opacity-100" : "opacity-0"}`} /></> : null}</span>
+    <span className="min-w-0"><strong className="line-clamp-2 text-sm text-white">{race.name}</strong><span className="mt-1 block truncate text-xs text-white/45">{formatDateTime(race.event_date).date}</span></span>
+  </a>;
+}
+
+export default function ExploreView({
+  races,
+  q = "",
+  seoHub,
+}: {
+  races: PublicRace[];
+  status?: string;
+  q?: string;
+  counts?: { all: number; active: number; inactive: number };
+  seoHub?: SeoHubContent;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { filtersOpen, closeFilters } = useMarketplaceSearch();
+  const [filter, setFilter] = useState<FilterTab>("eventos");
+  const [hubFilter, setHubFilter] = useState<HubFilter>("upcoming");
+  const { user: notificationUser } = useAthleteAuth();
+  const [residence, setResidence] = useState("");
+  const [notifications, setNotifications] = useState<SocialNotification[]>([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [notificationError, setNotificationError] = useState(false);
+  const [activityRefresh, setActivityRefresh] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    if (!notificationUser?.id) { setResidence(""); return; }
+    void createClient().from("athlete_profiles").select("residence").eq("user_id", notificationUser.id).maybeSingle().then(({ data }) => {
+      if (active) setResidence(String(data?.residence || ""));
+    });
+    return () => { active = false; };
+  }, [notificationUser?.id]);
+
+  const refreshNotifications = useCallback(async () => {
+    if (!notificationUser) {
+      setNotifications([]);
+      setNotificationCount(0);
+      return;
+    }
+    const { data, error } = await createClient().rpc("my_social_notifications", { p_limit: 50 });
+    setNotificationError(Boolean(error));
+    if (!error && data && typeof data === "object") {
+      const result = data as { items?: SocialNotification[]; unread_count?: number };
+      setNotifications(Array.isArray(result.items) ? result.items : []);
+      setNotificationCount(Number(result.unread_count) || 0);
+    }
+    setNotificationLoading(false);
+  }, [notificationUser?.id]);
+
+  useEffect(() => {
+    if (notificationUser) setNotificationLoading(true);
+    void refreshNotifications();
+    const timer = window.setInterval(() => void refreshNotifications(), 20000);
+    window.addEventListener("focus", refreshNotifications);
+    window.addEventListener("dorsalia:social-updated", refreshNotifications);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshNotifications);
+      window.removeEventListener("dorsalia:social-updated", refreshNotifications);
+    };
+  }, [refreshNotifications, notificationUser?.id]);
+
+  useEffect(() => {
+    if (filter !== "actividad" || !notificationUser) return;
+    void (async () => {
+      await createClient().rpc("mark_social_notifications_read");
+      await refreshNotifications();
+    })();
+  }, [filter, notificationUser?.id, refreshNotifications]);
+
+  useEffect(() => {
+    const refresh = () => { setActivityRefresh((value) => value + 1); setFilter("para_ti"); };
+    window.addEventListener("dorsalia:activity-published", refresh);
+    return () => window.removeEventListener("dorsalia:activity-published", refresh);
+  }, []);
+
+  const searchFilters = useMemo(
+    () => filtersFromSearchParams(new URLSearchParams(searchParams.toString())),
+    [searchParams],
+  );
+  const cities = useMemo(() => uniqueCities(races), [races]);
+  const bounds = useMemo(() => priceBounds(races), [races]);
+  const filtered = useMemo(
+    () => filterRaces(races, searchFilters),
+    [races, searchFilters],
+  );
+  const hubFiltered = useMemo(() => {
+    if (!seoHub || hubFilter === "all") return filtered;
+    const now = Date.now();
+    const finished = (race: PublicRace) => isFinalized(race) || Boolean(race.event_date && Date.parse(race.event_date) < now);
+    if (hubFilter === "finished") return filtered.filter(finished);
+    if (hubFilter === "free") return filtered.filter((race) => !finished(race) && isEventFree(race));
+    if (hubFilter === "paid") return filtered.filter((race) => !finished(race) && !isEventFree(race) && minPrice(race) > 0);
+    return filtered.filter((race) => !finished(race));
+  }, [filtered, hubFilter, seoHub]);
+  const ordered = useMemo(() => sortByFilter(hubFiltered), [hubFiltered]);
+  const hasSearch =
+    Boolean(searchFilters.q) || countActiveFilters(searchFilters) > 0;
+
+  function openRace(race: PublicRace) {
+    router.push(marketplaceEventUrl(race));
+  }
+
+  return (
+    <div className="relative min-h-screen bg-[#070707] mp-page-enter">
+      <section className="relative z-10 px-5 pb-16 pt-[30px]">
+        <SearchFiltersSheet
+          open={filtersOpen}
+          onClose={closeFilters}
+          cities={cities}
+          boundMin={bounds.min}
+          boundMax={bounds.max}
+        />
+
+        {seoHub ? <SeoHubHero content={seoHub} /> : <a
+          href="/iniciar"
+          className="mb-[30px] block overflow-hidden rounded-[28px]"
+          aria-label={BANNER_ALT}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={BANNER_MOBILE}
+            alt={BANNER_ALT}
+            width={1080}
+            height={1011}
+            className="h-auto w-full md:hidden"
+            decoding="async"
+            fetchPriority="high"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={BANNER_DESK}
+            alt={BANNER_ALT}
+            width={3021}
+            height={900}
+            className="hidden h-auto w-full md:block"
+            decoding="async"
+            fetchPriority="high"
+          />
+        </a>}
+
+        <div className="mb-[30px] md:hidden">
+          <button type="button" onClick={() => router.push("/buscar")} className="h-[48px] w-full rounded-[24px] border border-white/15 bg-white/[0.04] px-5 text-left text-[16px] text-white/45">Buscar eventos o usuarios…</button>
+        </div>
+
+        <div className="mb-[30px] md:mb-10">
+          {seoHub ? <HubFilterButtons active={hubFilter} onChange={setHubFilter} /> : <FilterButtons active={filter} onChange={setFilter} unreadCount={notificationCount} />}
+        </div>
+
+        {!seoHub && filter === "actividad" ? (
+          <div className="w-[calc(100%+2.5rem)] -translate-x-5 md:mx-auto md:w-full md:max-w-2xl md:translate-x-0"><SocialNotifications items={notifications} loading={notificationLoading} error={notificationError} signedIn={Boolean(notificationUser)} /></div>
+        ) : !seoHub && filter === "para_ti" ? (
+          <div className="w-[calc(100%+2.5rem)] -translate-x-5 md:mx-auto md:w-full md:max-w-2xl md:translate-x-0"><ActivityFeed followingOnly refreshKey={activityRefresh} emptyText="Sigue personas para ver sus publicaciones aquí." /></div>
+        ) : hasSearch ? (
+          <div className="mx-auto max-w-2xl">
+            <UserSearchResults query={searchFilters.q || ""} />
+            <h2 className="mb-3 text-sm font-semibold text-white/50">Eventos</h2>
+            {ordered.length ? <div className="space-y-1">{ordered.map((race) => <CompactEventCard key={race.id} race={race} onOpen={openRace} />)}</div> : <p className="px-3 py-8 text-sm text-white/40">No encontramos eventos con esa búsqueda.</p>}
+          </div>
+        ) : ordered.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/15 px-6 py-16 text-center">
+            <p className="font-akira text-lg">
+              {hasSearch ? "Sin resultados" : "Aún no hay carreras publicadas"}
+            </p>
+            <p className="mt-2 text-sm text-white/55">
+              {hasSearch
+                ? "Prueba otra búsqueda o ajusta los filtros."
+                : "Cuando un organizador publique su evento, aparecerá aquí."}
+            </p>
+          </div>
+        ) : seoHub ? (
+          <ProgressiveEventGrid races={ordered} onOpen={openRace} />
+        ) : (
+          <HomeEventSections races={ordered} residence={residence} onOpen={openRace} />
+        )}
+
+        {seoHub ? (
+          <section className="mt-16 border-t border-white/10 pt-10">
+            <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.55fr)]">
+              <div><h2 className="text-2xl font-black text-white">Encuentra tu próximo evento</h2><p className="mt-4 max-w-3xl text-pretty text-sm leading-7 text-white/55 md:text-base">{seoHub.longDescription}</p></div>
+              {seoHub.relatedLinks.length ? <div><h2 className="text-sm font-bold uppercase tracking-[0.14em] text-white/45">Explorar también</h2><div className="mt-4 flex flex-wrap gap-2">{seoHub.relatedLinks.map((link) => <a key={link.href} href={link.href} className="rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-[#c9f24b] hover:text-[#c9f24b]">{link.label}</a>)}</div></div> : null}
+            </div>
+          </section>
+        ) : filter === "eventos" && !hasSearch ? <HomeDirectoryLinks races={races} /> : null}
+      </section>
+    </div>
+  );
+}

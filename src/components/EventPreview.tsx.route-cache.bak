@@ -1,0 +1,776 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import type { PublicRace } from "@/lib/races";
+import {
+  billboardSlug,
+  marketplaceEventUrl,
+  cardCoverImage,
+  coverImage,
+  eventSiteUrl,
+  flyerImage,
+  formatDateTime,
+  isEventFree,
+  isFinalized,
+  organizerImage,
+  organizerLabel,
+  organizerSlugFrom,
+  placeLabel,
+  seoDescription,
+  simplifiedPricingPhases,
+} from "@/lib/races";
+import { formatDistance, routeTrace, type PublicEventRoute } from "@/lib/routeMap";
+import GlassIconButton from "@/components/account/GlassIconButton";
+import { useSavedRaces } from "@/components/SavedRacesProvider";
+import Button from "@/components/ui/Button";
+import GlassPanel from "@/components/ui/GlassPanel";
+import EventReviews, { EventRatingSummary } from "@/components/reviews/EventReviews";
+import {
+  EMPTY_EVENT_REVIEWS,
+  fetchEventReviews,
+  type EventReviewData,
+} from "@/lib/eventReviews";
+
+const ICON_BACK = "/assetsdev/Chevron_Right.svg";
+const ICON_SHARE = "/branding/compartir-icon.svg";
+const ICON_HELP = "/assetsdev/Circle_Help.svg";
+
+const SOCIAL_ICONS: Record<string, string> = {
+  whatsapp: "/assetsdev/Social-Icons.svg",
+  x: "/assetsdev/Social-Icons-1.svg",
+  youtube: "/assetsdev/Social-Icons-2.svg",
+  tiktok: "/assetsdev/Social-Icons-3.svg",
+  facebook: "/assetsdev/Social-Icons-4.svg",
+  instagram: "/assetsdev/Social-Icons-5.svg",
+};
+
+const AnimatedRouteMap = dynamic(() => import("@/components/AnimatedRouteMap"), { ssr: false });
+
+const CLOSE_MS = 190;
+
+export default function EventPreview({
+  race,
+  onClose,
+}: {
+  race: PublicRace;
+  onClose: () => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [mainImageLoaded, setMainImageLoaded] = useState(false);
+  const [registroImmersive, setRegistroImmersive] = useState(false);
+  const [aboutExpanded, setAboutExpanded] = useState(false);
+  const [state, setState] = useState<"open" | "closing">("open");
+  const closingRef = useRef(false);
+  const mainImageRef = useRef<HTMLImageElement | null>(null);
+  /** Portada de cartelera (misma que cards); flyer solo si no hay portada. */
+  const cover = cardCoverImage(race);
+  const mainImage = cover || flyerImage(race) || coverImage(race);
+  const blurSrc = cover || mainImage;
+  const siteUrl = eventSiteUrl(race);
+  const free = isEventFree(race);
+  const { date, time } = formatDateTime(race.event_date);
+  const phases = simplifiedPricingPhases(race);
+  const finalized = isFinalized(race);
+  const activePhase = useMemo(() => {
+    const now = Date.now();
+    return (race.pricing_phases || [])
+      .filter((phase) => {
+        const start = Date.parse(phase.starts_at || "");
+        const end = Date.parse(phase.ends_at || "");
+        return (!Number.isFinite(start) || start <= now) && (!Number.isFinite(end) || now <= end);
+      })
+      .filter((phase) => Number.isFinite(Number(phase.price)) && Number(phase.price) >= 0)
+      .sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
+  }, [race.pricing_phases]);
+  const activePrice = activePhase ? Number(activePhase.price) : phases[0]?.price;
+  const activePriceLabel = activePrice != null
+    ? new Intl.NumberFormat("es-MX", { style: "currency", currency: race.currency || "MXN", maximumFractionDigits: 0 }).format(activePrice)
+    : null;
+  const ctaLabel = finalized
+    ? "Evento finalizado"
+    : activePrice === 0 || (activePhase == null && free)
+      ? "Inscríbete gratis"
+      : activePriceLabel
+        ? `Inscríbete por ${activePriceLabel}`
+        : "Inscribirse";
+  const registroUrl = siteUrl
+    ? `${siteUrl.replace(/\/$/, "")}/registro?embed=1&mp=1`
+    : null;
+  const orgImg = organizerImage(race);
+  const orgSlug = organizerSlugFrom(race);
+  const { isSaved, toggleSave } = useSavedRaces();
+  const saved = isSaved(race.id);
+  const [popSave, setPopSave] = useState(false);
+  const [popShare, setPopShare] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
+  const [reviewData, setReviewData] = useState<EventReviewData>(EMPTY_EVENT_REVIEWS);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+
+  const loadReviews = useCallback(async () => {
+    setReviewsLoading(true);
+    try {
+      setReviewData(await fetchEventReviews(race.id));
+    } catch {
+      setReviewData(EMPTY_EVENT_REVIEWS);
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [race.id]);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  useEffect(() => {
+    void loadReviews();
+  }, [loadReviews]);
+
+  async function onToggleSave() {
+    setPopSave(true);
+    window.setTimeout(() => setPopSave(false), 400);
+    await toggleSave(race.id);
+  }
+
+  async function shareEvent() {
+    setPopShare(true);
+    window.setTimeout(() => setPopShare(false), 400);
+    const url = marketplaceEventUrl(race);
+    if (!url) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: race.name, text: race.name, url });
+        return;
+      }
+    } catch {
+      /* cancelled */
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const routes = useMemo(() => {
+    const list = Array.isArray(race.routes) ? race.routes : [];
+    return list.slice(0, 3);
+  }, [race.routes]);
+
+  const medals = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { url: string; alt: string; key: string }[] = [];
+    for (const r of routes) {
+      const url = String(r.medal_image_url || "").trim();
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      out.push({
+        url,
+        key: r.key || url,
+        alt: String(r.medal_label || r.label || "Medalla").trim() || "Medalla",
+      });
+    }
+    return out;
+  }, [routes]);
+
+  const aboutText = seoDescription(race);
+  const aboutLong = aboutText.length > 160;
+
+  const routesWithMap = useMemo(
+    () => routes.filter((r) => routeTrace(r.map).hasTrace),
+    [routes],
+  );
+
+  const [activeRouteKey, setActiveRouteKey] = useState(() => routesWithMap[0]?.key || routes[0]?.key || "");
+
+  function requestClose() {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setState("closing");
+    window.setTimeout(() => onClose(), CLOSE_MS);
+  }
+
+  useEffect(() => {
+    setShowForm(false);
+    setMainImageLoaded(false);
+    setRegistroImmersive(false);
+    setAboutExpanded(false);
+    setActiveRouteKey(routesWithMap[0]?.key || routes[0]?.key || "");
+  }, [race.id, routes, routesWithMap]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      if (mainImageRef.current?.complete && mainImageRef.current.naturalWidth > 0) setMainImageLoaded(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [mainImage]);
+
+  useEffect(() => {
+    if (!showForm) {
+      setRegistroImmersive(false);
+      return;
+    }
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type === "dorsalia:registro-immersive") {
+        setRegistroImmersive(Boolean(data.immersive));
+      }
+      if (data.type === "dorsalia:registro-close") {
+        setShowForm(false);
+        setRegistroImmersive(false);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [showForm]);
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    const prevOverflowX = document.body.style.overflowX;
+    document.body.style.overflow = "hidden";
+    document.body.style.overflowX = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (showForm) {
+        setShowForm(false);
+        return;
+      }
+      requestClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.overflowX = prevOverflowX;
+      window.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm]);
+
+  const socialItems = useMemo(() => {
+    const out: { key: string; url: string; icon: string; label: string }[] = [];
+    const links = race.social_links || {};
+    const order = ["instagram", "facebook", "tiktok", "whatsapp", "youtube", "x"] as const;
+    for (const key of order) {
+      const icon = SOCIAL_ICONS[key];
+      if (!icon) continue;
+      const item = (links as Record<string, { url?: string } | undefined>)[key];
+      const url = String(item?.url || "").trim();
+      if (!url) continue;
+      out.push({ key, url, icon, label: key });
+    }
+    // Legacy Instagram fields if not in social_links
+    if (!out.some((s) => s.key === "instagram")) {
+      const handle = String(race.instagram_handle || "").replace(/^@/, "").trim();
+      const url = race.instagram_url || (handle ? `https://instagram.com/${handle}` : null);
+      if (url) {
+        out.unshift({
+          key: "instagram",
+          url,
+          icon: SOCIAL_ICONS.instagram,
+          label: "instagram",
+        });
+      }
+    }
+    return out;
+  }, [race]);
+
+  const activeRoute: PublicEventRoute | null =
+    routesWithMap.find((r) => r.key === activeRouteKey) || routesWithMap[0] || null;
+  // Keep route arrays referentially stable when reviews or form fields update.
+  // Recreating them tears down MapLibre and makes the route appear to replay.
+  const activeTrace = useMemo(
+    () => (activeRoute ? routeTrace(activeRoute.map) : null),
+    [activeRoute],
+  );
+
+  const phaseBar = (
+    <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center pb-[30px] px-3">
+      <GlassPanel
+        radius={999}
+        variant="dark"
+        style={{ width: "fit-content", maxWidth: "100%" }}
+        glassProps={{
+          glassColor: "rgba(10,10,10,0.42)",
+          borderColor: "rgba(255,255,255,0.28)",
+          blur: 22,
+          saturation: 140,
+          aberrationIntensity: 0.06,
+        }}
+      >
+        <div
+          className="flex items-center justify-center"
+          style={{
+            paddingLeft: 23,
+            paddingRight: 23,
+            paddingTop: 10,
+            paddingBottom: 10,
+            gap: 40,
+          }}
+        >
+          {phases.map((phase) => {
+            const freeOnly = phase.price <= 0 && phases.length === 1;
+            return (
+              <div
+                key={`${phase.label}-${phase.priceLabel}`}
+                className="shrink-0 text-center whitespace-nowrap"
+              >
+                {freeOnly ? (
+                  <p className="text-[15px] font-bold leading-none text-white">Gratis</p>
+                ) : (
+                  <>
+                    <p className="text-[11px] font-medium leading-none text-white/70">
+                      {phase.label}
+                    </p>
+                    <p className="mt-1.5 text-[15px] font-bold leading-none text-white">
+                      {phase.priceLabel}
+                    </p>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </GlassPanel>
+    </div>
+  );
+
+  const orgPresented = (
+    <>
+      {orgImg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={orgImg}
+          alt=""
+          className="h-7 w-7 shrink-0 rounded-full object-cover"
+        />
+      ) : (
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/15 text-[11px] font-semibold text-white">
+          {organizerLabel(race).slice(0, 1).toUpperCase()}
+        </span>
+      )}
+      <span>
+        <span className="text-white/50">Presentado por </span>
+        <span className="font-semibold text-white">{organizerLabel(race)}</span>
+      </span>
+    </>
+  );
+
+  if (!portalReady) return null;
+
+  return createPortal(
+    <div
+      className="mp-preview-root fixed inset-0 z-[200] overflow-y-auto overflow-x-hidden overscroll-contain"
+      data-state={state}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="event-preview-title"
+    >
+      <div className="mp-preview-backdrop pointer-events-none fixed inset-0 bg-black" aria-hidden>
+        {blurSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={blurSrc}
+            alt=""
+            className="absolute inset-0 h-full w-full scale-[1.45] object-cover opacity-75 blur-[100px] saturate-150"
+            style={{ filter: "blur(100px) saturate(1.5)", WebkitFilter: "blur(100px) saturate(1.5)" }}
+          />
+        ) : null}
+        <div className="absolute inset-0 bg-black/65" />
+      </div>
+
+      <div className="mp-preview-sheet relative z-10 min-h-full">
+        <div
+          className="mp-preview-chrome sticky top-0 z-30 flex items-center justify-between pointer-events-none"
+          style={{ paddingTop: 15, paddingLeft: 20, paddingRight: 20, paddingBottom: 8 }}
+        >
+          <div className="pointer-events-auto">
+            <GlassIconButton aria-label="Cerrar" onClick={requestClose}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={ICON_BACK} alt="" width={24} height={24} />
+            </GlassIconButton>
+          </div>
+
+          <div className="pointer-events-auto ml-auto flex items-center" style={{ gap: 10 }}>
+            <div className={popSave ? "mp-icon-pop" : undefined}>
+              <GlassIconButton
+                aria-label={saved ? `Quitar ${race.name} de guardados` : `Guardar ${race.name}`}
+                onClick={() => void onToggleSave()}
+              >
+                <svg width="24" height="24" viewBox="0 0 40 40" fill="none" aria-hidden>
+                  <path
+                    d="M20 14.6176C17.5 8.7496 8.75 9.3746 8.75 16.8746C8.75 24.3747 20 30.6249 20 30.6249C20 30.6249 31.25 24.3747 31.25 16.8746C31.25 9.3746 22.5 8.7496 20 14.6176Z"
+                    stroke="white"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill={saved ? "white" : "none"}
+                  />
+                </svg>
+              </GlassIconButton>
+            </div>
+            <div className={popShare ? "mp-icon-pop" : undefined}>
+              <GlassIconButton aria-label="Compartir" onClick={() => void shareEvent()}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  ref={mainImageRef}
+                  src={ICON_SHARE}
+                  alt=""
+                  width={24}
+                  height={24}
+                  style={{ filter: "brightness(0) invert(1)" }}
+                />
+              </GlassIconButton>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="mp-preview-panel relative z-10 mx-auto max-w-lg px-5 pb-28 md:max-w-5xl md:px-8 md:pb-24"
+          style={{ paddingTop: 12 }}
+        >
+        <div className="grid md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-8 md:gap-12 items-start">
+          <div className="space-y-4">
+            {mainImage ? (
+              <div className="relative aspect-[3/4] overflow-hidden rounded-[28px] bg-[#141414] shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+                {!mainImageLoaded ? <div className="absolute inset-0 z-[2] grid place-items-center" role="status" aria-label="Cargando portada"><span className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" /></div> : null}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={mainImage}
+                  alt={`Portada de ${race.name}`}
+                  onLoad={() => setMainImageLoaded(true)}
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${mainImageLoaded ? "opacity-100" : "opacity-0"}`}
+                />
+                {phaseBar}
+              </div>
+            ) : (
+              <div className="relative aspect-[3/4] rounded-[28px] bg-white/5 grid place-items-center font-akira text-white/40">
+                {race.name}
+                {phaseBar}
+              </div>
+            )}
+          </div>
+
+          <div className="md:pt-4">
+            <div>
+              <h1
+                id="event-preview-title"
+                className="font-akira text-[32px] text-white leading-[1.05] tracking-wide uppercase"
+              >
+                {race.name}
+              </h1>
+
+              {orgSlug ? (
+                <Link
+                  href={`/org/${orgSlug}`}
+                  className="mt-3 inline-flex items-center gap-2.5 text-sm text-white hover:opacity-90 transition-opacity"
+                >
+                  {orgPresented}
+                </Link>
+              ) : (
+                <p className="mt-3 inline-flex items-center gap-2.5 text-sm text-white">
+                  {orgPresented}
+                </p>
+              )}
+              <EventRatingSummary data={reviewData} />
+            </div>
+
+            <div
+              className="text-white/90"
+              style={{ marginTop: 30, display: "flex", flexDirection: "column", gap: 5 }}
+            >
+              <p className="flex items-center gap-3 text-[18px] leading-snug">
+                <span aria-hidden className="shrink-0 text-white">
+                  <svg width="33" height="33" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="3" y="5" width="18" height="16" rx="2" />
+                    <path d="M3 10h18M8 3v4M16 3v4" />
+                  </svg>
+                </span>
+                <span>
+                  <span className="block">{date}</span>
+                  {time ? <span className="block text-white/70">{time}</span> : null}
+                </span>
+              </p>
+              <p className="flex items-center gap-3 text-[18px] leading-snug">
+                <span aria-hidden className="shrink-0 text-white">
+                  <svg width="33" height="33" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" />
+                    <circle cx="12" cy="10" r="2.2" />
+                  </svg>
+                </span>
+                <span>{placeLabel(race)}</span>
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 max-w-md" style={{ marginTop: 30 }}>
+              {registroUrl || finalized ? (
+                <Button
+                  variant="primary"
+                  type="button"
+                  fullWidth
+                  onClick={() => { if (!finalized) setShowForm(true); }}
+                  disabled={finalized}
+                  className="!bg-white !text-black !border-white hover:!brightness-95 !text-[20px] !py-[15px] uppercase tracking-wide"
+                >
+                  {ctaLabel}
+                </Button>
+              ) : null}
+              {siteUrl ? (
+                <GlassPanel
+                  radius={20}
+                  variant="dark"
+                  className="w-full"
+                  glassProps={{
+                    glassColor: "rgba(12,12,12,0.35)",
+                    borderColor: "rgba(255,255,255,0.45)",
+                    blur: 18,
+                  }}
+                >
+                  <a
+                    href={siteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex w-full items-center justify-center px-6 py-[15px] text-[20px] font-bold uppercase tracking-wide text-white"
+                  >
+                    Visitar sitio
+                  </a>
+                </GlassPanel>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-10 grid items-start gap-8 md:mt-14 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:gap-12">
+          <div>
+            <section className="max-w-xl">
+              <h3 className="text-[22px] font-semibold leading-tight text-white">
+                Sobre el evento
+              </h3>
+              <div className="relative" style={{ marginTop: 10 }}>
+                <p
+                  className={`text-[18px] leading-relaxed text-white/90 ${
+                    !aboutExpanded && aboutLong ? "line-clamp-4" : ""
+                  }`}
+                  style={
+                    !aboutExpanded && aboutLong
+                      ? {
+                          WebkitMaskImage:
+                            "linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)",
+                          maskImage:
+                            "linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)",
+                        }
+                      : undefined
+                  }
+                >
+                  {aboutText}
+                </p>
+                {aboutLong ? (
+                  <button
+                    type="button"
+                    onClick={() => setAboutExpanded((v) => !v)}
+                    className="mt-2 text-[18px] font-medium text-white"
+                  >
+                    {aboutExpanded ? "Mostrar menos" : "Mostrar más"}
+                  </button>
+                ) : null}
+              </div>
+            </section>
+
+            {medals.length > 0 ? (
+              <section className="mt-10 max-w-xl">
+                <h3 className="text-[22px] font-semibold leading-tight text-white">
+                  Modalidades
+                </h3>
+                <div className="mt-4 flex flex-wrap items-end gap-4">
+                  {medals.map((m) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={m.key}
+                      src={m.url}
+                      alt={m.alt}
+                      className="h-[88px] w-auto object-contain"
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
+
+          {(routesWithMap.length > 0 || routes.length > 0) ? (
+            <section>
+              <h3 className="text-[22px] font-semibold leading-tight text-white">Ruta</h3>
+
+              {activeTrace?.hasTrace ? (
+                <div className="relative mt-5 aspect-[4/5] w-full overflow-hidden rounded-[28px] bg-black">
+                  {routesWithMap.length > 1 ? (
+                    <div
+                      className="pointer-events-none absolute z-[600] flex max-w-[calc(100%-30px)] flex-wrap gap-1.5"
+                      style={{ top: 15, left: 15 }}
+                    >
+                      {routesWithMap.map((route) => {
+                        const active = route.key === (activeRoute?.key || routesWithMap[0]?.key);
+                        return (
+                          <button
+                            key={route.key}
+                            type="button"
+                            onClick={() => setActiveRouteKey(route.key)}
+                            className={`mp-card-badge pointer-events-auto whitespace-nowrap px-[10px] py-[5px] text-[10px] font-bold uppercase tracking-[0.08em] text-white transition-opacity ${
+                              active ? "opacity-100" : "opacity-70"
+                            }`}
+                          >
+                            {route.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <AnimatedRouteMap
+                    key={activeRoute?.key || "route"}
+                    polyline={activeTrace.polyline}
+                    waypoints={activeTrace.waypoints}
+                    points={activeTrace.points}
+                    routeName={activeRoute?.label || "Ruta"}
+                    distanceLabel={formatDistance(Number(activeRoute?.distance_m) || activeTrace.distance_m)}
+                    eventName={race.name}
+                    organizerLogoUrl={race.organizer_logo_url || race.logo_url}
+                  />
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-white/55">
+                  {routes.map((r) => r.label).filter(Boolean).join(" · ") || "Rutas por publicar"}
+                </p>
+              )}
+            </section>
+          ) : null}
+        </div>
+
+        <EventReviews
+          raceEventId={race.id}
+          returnSlug={billboardSlug(race)}
+          data={reviewData}
+          loading={reviewsLoading}
+          onReload={loadReviews}
+        />
+
+        <p className="mt-10 max-w-3xl text-[11px] leading-relaxed text-white/45 md:mt-12">
+          El precio puede variar y ser modificado por el organizador (fases,
+          cupos u otras reglas del evento). Si ya pagaste una inscripción a
+          un precio menor y el precio sube después, no debes pagar nada
+          extra por esa misma inscripción. Los términos, reglamentos,
+          reembolsos, kit y condiciones del evento son responsabilidad del
+          organizador; Dorsalia opera la plataforma tecnológica y no es el
+          organizador del evento.{" "}
+          <Link
+            href="/terminos"
+            className="text-white/65 underline underline-offset-2 hover:text-white/90"
+          >
+            Ver términos
+          </Link>
+          .
+        </p>
+
+        {socialItems.length > 0 ? (
+          <div className="mt-8 flex flex-wrap items-center gap-4">
+            {socialItems.map((s) => (
+              <a
+                key={`${s.key}-${s.url}`}
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={s.label}
+                className="grid h-10 w-10 place-items-center opacity-90 transition-opacity hover:opacity-100"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={s.icon} alt="" width={24} height={24} className="h-6 w-6" />
+              </a>
+            ))}
+          </div>
+        ) : null}
+
+        <a
+          href={`mailto:contacto@dorsalia.run?subject=${encodeURIComponent(
+            `Reporte de evento: ${race.name}`,
+          )}`}
+          className="mt-14 mb-4 inline-flex max-w-xl items-center gap-2.5 text-[14px] text-white/55 hover:text-white/80 transition-colors"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={ICON_HELP}
+            alt=""
+            width={20}
+            height={20}
+            className="h-5 w-5 shrink-0 opacity-70"
+            style={{ filter: "brightness(0) invert(1)" }}
+          />
+          <span>Presentas algún problema o deseas reportar este evento?</span>
+        </a>
+        </div>
+      </div>
+
+      {showForm && registroUrl ? (
+        <div
+          className={`fixed inset-0 z-[210] flex overflow-x-hidden overscroll-none ${
+            registroImmersive
+              ? "items-stretch justify-stretch p-0"
+              : "items-end sm:items-center justify-center p-0 sm:p-6"
+          }`}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Inscripción a ${race.name}`}
+        >
+          {!registroImmersive ? (
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+              aria-label="Cerrar inscripción"
+              onClick={() => setShowForm(false)}
+            />
+          ) : (
+            <div className="absolute inset-0 bg-black" aria-hidden />
+          )}
+          <div
+            className={`mp-registro-shell relative z-10 box-border flex w-full flex-col overflow-hidden overflow-x-hidden bg-black ${
+              registroImmersive
+                ? "h-[100dvh] max-w-none rounded-none border-0"
+                : "h-[min(92dvh,880px)] max-w-lg rounded-t-[24px] sm:rounded-[24px] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.65)] mp-rise-in"
+            }`}
+          >
+            {!registroImmersive ? (
+              <div className="flex w-full max-w-full shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="truncate text-sm font-semibold text-white">Inscripción</p>
+                  <p className="truncate text-[11px] text-white/45">{race.name}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                  aria-label="Cerrar"
+                >
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden>
+                    <path
+                      d="M1 1l12 12M13 1L1 13"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ) : null}
+            <iframe
+              title={`Inscripción a ${race.name}`}
+              src={registroUrl}
+              className="block h-full min-h-0 w-full max-w-full flex-1 border-0 bg-black"
+              style={{ width: "100%", maxWidth: "100%" }}
+              allow="payment *"
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>,
+    document.body,
+  );
+}

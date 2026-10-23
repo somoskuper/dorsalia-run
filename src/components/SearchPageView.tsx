@@ -1,0 +1,67 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PublicRace } from "@/lib/races";
+import { cardCoverImage, formatDateTime, marketplaceEventPath, organizerSlugFrom, placeLabel } from "@/lib/races";
+import { createClient } from "@/lib/supabase/client";
+import AssetIcon from "@/components/ui/AssetIcon";
+
+type Person = { user_id: string; username: string; display_name: string; avatar_url?: string | null; bio?: string | null };
+
+export default function SearchPageView({ races }: { races: PublicRace[] }) {
+  const router = useRouter();
+  const params = useSearchParams();
+  const [query, setQuery] = useState(params.get("q") || "");
+  const [people, setPeople] = useState<Person[]>([]);
+  const timer = useRef<number | null>(null);
+  const normalized = query.trim().toLocaleLowerCase("es-MX");
+
+  useEffect(() => {
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      const next = new URLSearchParams(); if (query.trim()) next.set("q", query.trim());
+      router.replace(next.size ? `/buscar?${next}` : "/buscar", { scroll: false });
+      if (query.trim().length < 2) { setPeople([]); return; }
+      void createClient().rpc("public_user_search", { p_query: query.trim(), p_limit: 20 }).then(({ data }) => setPeople(Array.isArray(data) ? data as Person[] : []));
+    }, 220);
+    return () => { if (timer.current) window.clearTimeout(timer.current); };
+  }, [query, router]);
+
+  const events = useMemo(() => !normalized ? [] : races.filter((race) => [race.name, placeLabel(race), race.organizer_name].filter(Boolean).join(" ").toLocaleLowerCase("es-MX").includes(normalized)).slice(0, 30), [normalized, races]);
+  const organizers = useMemo(() => {
+    if (!normalized) return [];
+    const seen = new Set<string>();
+    return races.flatMap((race) => {
+      const slug = organizerSlugFrom(race);
+      const name = String(race.organizer_name || '').trim();
+      if (!slug || !name || seen.has(slug)) return [];
+      const haystack = [name, slug, race.organizer_place, race.organizer_description].filter(Boolean).join(' ').toLocaleLowerCase('es-MX');
+      if (!haystack.includes(normalized)) return [];
+      seen.add(slug);
+      return [{ slug, name, logoUrl: race.organizer_logo_url, place: race.organizer_place, description: race.organizer_description }];
+    }).slice(0, 12);
+  }, [normalized, races]);
+
+  return <main className="min-h-screen bg-[#070707] text-white">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070707]/95 px-4 py-3 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-2xl items-center gap-3">
+        <button type="button" onClick={() => router.back()} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white" aria-label="Volver"><AssetIcon name="arrow-circle-left" size={24} /></button>
+        <div className="flex h-12 min-w-0 flex-1 items-center rounded-full border border-white/15 bg-white/[0.06] px-5"><AssetIcon name="search" size={19} className="mr-3 text-white/45" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar usuarios o carreras" className="w-full bg-transparent text-[16px] outline-none placeholder:text-white/35" />{query ? <button type="button" onClick={() => setQuery("")} className="text-xl text-white/50">×</button> : null}</div>
+      </div>
+    </header>
+    <div className="mx-auto max-w-2xl pb-16">
+      {!query.trim() ? <p className="px-5 py-10 text-sm text-white/40">Busca personas, carreras, ciudades u organizadores.</p> : <>
+        <section className="py-5"><h2 className="px-5 pb-2 text-sm font-semibold text-white/45">Personas</h2>{people.length ? people.map((person) => <Link key={person.user_id} href={`/perfil/${person.username}`} className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.05]">{person.avatar_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={person.avatar_url} alt="" loading="lazy" className="h-12 w-12 rounded-full object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-full bg-white/10 font-bold">{person.display_name.slice(0, 1)}</span>}<span className="min-w-0"><strong className="block truncate text-sm">{person.display_name}</strong><span className="block truncate text-xs text-white/45">@{person.username}</span></span></Link>) : <p className="px-5 py-3 text-sm text-white/35">Sin usuarios encontrados.</p>}</section>
+        <section className="border-t border-white/10 py-5"><h2 className="px-5 pb-2 text-sm font-semibold text-white/45">Organizadores</h2>{organizers.length ? organizers.map((organizer) => <Link key={organizer.slug} href={`/org/${encodeURIComponent(organizer.slug)}`} className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.05]">{organizer.logoUrl ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={organizer.logoUrl} alt="" loading="lazy" className="h-12 w-12 rounded-full object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-full bg-white/10 font-bold">{organizer.name.slice(0, 1)}</span>}<span className="min-w-0"><strong className="block truncate text-sm">{organizer.name}</strong><span className="block truncate text-xs text-white/45">Organizador{organizer.place ? ` · ${organizer.place}` : ''} · @{organizer.slug}</span></span></Link>) : <p className="px-5 py-3 text-sm text-white/35">Sin organizadores encontrados.</p>}</section>
+        <section className="border-t border-white/10 py-5"><h2 className="px-5 pb-2 text-sm font-semibold text-white/45">Eventos</h2>{events.length ? events.map((race) => <Link key={race.id} href={marketplaceEventPath(race)} className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.05]"><EventThumb src={cardCoverImage(race)} /><span className="min-w-0"><strong className="line-clamp-2 text-sm">{race.name}</strong><span className="mt-1 block truncate text-xs text-white/45">{formatDateTime(race.event_date).date} · {placeLabel(race)}</span></span></Link>) : <p className="px-5 py-3 text-sm text-white/35">Sin eventos encontrados.</p>}</section>
+      </>}
+    </div>
+  </main>;
+}
+
+function EventThumb({ src }: { src?: string | null }) {
+  const [loaded, setLoaded] = useState(!src);
+  return <span className="relative h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white/[0.05]">{src ? <>{!loaded ? <span className="absolute inset-0 grid place-items-center"><span className="h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-[#c9f24b]" /></span> : null}{/* eslint-disable-next-line @next/next/no-img-element */}<img src={src} alt="" loading="lazy" onLoad={() => setLoaded(true)} className={`h-full w-full object-cover ${loaded ? "opacity-100" : "opacity-0"}`} /></> : null}</span>;
+}

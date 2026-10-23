@@ -1,0 +1,31 @@
+import type { MarketplaceAdCard as Ad } from "@/lib/marketplaceAds";
+
+export default function MarketplaceAdCard({ ad, variant = "card" }: { ad: Ad; variant?: "card" | "hero" }) {
+  const href = /^(https?:\/\/|\/(?!\/))/i.test(ad.cta_url) ? ad.cta_url : "#";
+  const isHero = variant === "hero";
+  const headingClass = `text-[clamp(1.35rem,7cqw,2.25rem)] font-bold leading-[1.08] tracking-[-0.03em] ${isHero ? "" : "line-clamp-3"}`;
+
+  return (
+    <article className="w-full" style={{ containerType: "inline-size" }}>
+      <div className="flex aspect-[4/5] flex-col overflow-hidden rounded-[28px] text-black lg:aspect-square xl:aspect-auto xl:h-[620px]" style={{ backgroundColor: ad.background_color }}>
+        {ad.image_url ? <div className="relative min-h-0 flex-1 overflow-hidden bg-black/10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={ad.image_url} alt={ad.image_alt || ad.title} loading={isHero ? "eager" : "lazy"} fetchPriority={isHero ? "high" : undefined} className={`absolute inset-0 h-full w-full object-cover ${isHero ? "object-center" : "object-bottom"}`} />
+        </div> : null}
+        <div className="shrink-0">
+          <div className="px-[8%] pb-[7%] pt-[7%]">
+            {isHero ? <h1 className={headingClass}>{ad.title}</h1> : <h2 className={headingClass}>{ad.title}</h2>}
+            {ad.description ? <p className={`mt-2 text-[clamp(0.9rem,4cqw,1.25rem)] leading-snug text-black/55 ${isHero ? "" : "line-clamp-2"}`}>{ad.description}</p> : null}
+          </div>
+          <div className="flex items-end justify-between gap-2 border-t border-black/10 px-[8%] py-[5%]">
+            <div className="min-w-0 text-[clamp(0.75rem,3.5cqw,1rem)] leading-snug text-black/60">
+              <p className={`font-semibold ${isHero ? "" : "truncate"}`}>{ad.footer_primary}</p>
+              <p className={isHero ? "" : "truncate"}>{ad.footer_secondary}</p>
+            </div>
+            {ad.cta_label && href !== "#" ? <a href={href} style={{ color: "#fff" }} className="shrink-0 rounded-[18px] bg-[#121212] px-[5%] py-[4%] text-center text-[clamp(0.85rem,4.3cqw,1.25rem)] font-bold transition hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black">{ad.cta_label}</a> : null}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}

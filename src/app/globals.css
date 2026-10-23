@@ -1,0 +1,742 @@
+@import "tailwindcss";
+
+/* Joyride Ext is optional — only declare when the file is present under /public/fonts.
+   Missing files caused console 404s; Anybody + Akira cover display until then. */
+
+@font-face {
+  font-family: "Akira Expanded";
+  src: url("/fonts/AkiraExpanded.otf") format("opentype");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/PlusJakartaSans-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/PlusJakartaSans-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/PlusJakartaSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg: #070707;
+  --surface: #0c0c0c;
+  --border: #2a2a2a;
+  --text: #f5f5f5;
+  --muted: #a1a1aa;
+  --accent: #c5e500;
+  --ink: #070707;
+  --btn-primary-bg: #c5e500;
+  --btn-primary-fg: #070707;
+  --btn-secondary-fg: #ffffff;
+  --btn-secondary-stroke: rgba(255, 255, 255, 0.11);
+  --btn-tertiary-bg: #ffffff;
+  --btn-tertiary-fg: #070707;
+  /* Anybody @ 145% width ≈ Joyride Ext when that face is added later */
+  --font-display: var(--font-anybody), "Akira Expanded", "Arial Black", Impact, sans-serif;
+  --font-body: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Motion / Leaflet: never flash light tile placeholders */
+.leaflet-container {
+  background: #000 !important;
+  font: inherit;
+}
+.leaflet-tile {
+  filter: none;
+}
+.leaflet-fade-anim .leaflet-tile {
+  transition: none !important;
+}
+.dorsalia-runner-dot {
+  background: transparent !important;
+  border: none !important;
+}
+
+.font-akira {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 145%;
+  font-variation-settings: "wdth" 145;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.akira-btn {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 145%;
+  font-variation-settings: "wdth" 145;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ─── Dorsalia buttons (primary / secondary / tertiary) ───
+   Height is driven only by 1rem type + padding — never a fixed px height. */
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10px 23px;
+  border-radius: 20px;
+  border: 2px solid transparent;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    filter 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.ds-btn--primary {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+  border-color: var(--btn-primary-bg);
+}
+
+.ds-btn--primary:hover:not(:disabled):not(.ds-btn--disabled) {
+  filter: brightness(1.06);
+}
+
+.ds-btn--secondary {
+  background-color: transparent;
+  color: var(--btn-secondary-fg);
+  border-color: var(--btn-secondary-stroke);
+}
+
+.ds-btn--secondary:hover:not(:disabled):not(.ds-btn--disabled) {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.ds-btn--tertiary {
+  background-color: var(--btn-tertiary-bg);
+  color: var(--btn-tertiary-fg);
+  border-color: var(--btn-tertiary-bg);
+}
+
+.ds-btn--tertiary:hover:not(:disabled):not(.ds-btn--disabled) {
+  filter: brightness(0.96);
+}
+
+.ds-btn--full {
+  width: 100%;
+}
+
+.ds-btn--disabled,
+.ds-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.ds-btn:active:not(:disabled):not(.ds-btn--disabled) {
+  transform: scale(0.98);
+}
+
+/* ─── Vidrio (CSS-only glass fallback) ───
+   Use <GlassPanel> for the full liquid-glass effect.
+   This class is kept as a lightweight CSS-only alternative. */
+.ds-vidrio {
+  --vidrio-radius: 999px;
+
+  position: relative;
+  isolation: isolate;
+  border: none;
+  border-radius: var(--vidrio-radius);
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.ds-vidrio > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Specular rim */
+.ds-vidrio::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.15) 30%,
+    rgba(255, 255, 255, 0.03) 50%,
+    rgba(255, 255, 255, 0.12) 75%,
+    rgba(255, 255, 255, 0.35) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ds-vidrio {
+    background: rgba(28, 28, 28, 0.92);
+  }
+}
+
+/* Crystal rim for liquid-glass badges — bright specular edge like real glass */
+.ds-glass-crystal {
+  position: relative;
+  isolation: isolate;
+}
+
+.ds-glass-crystal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  padding: 1.25px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.55) 18%,
+    rgba(255, 255, 255, 0.12) 42%,
+    rgba(255, 255, 255, 0.04) 58%,
+    rgba(255, 255, 255, 0.22) 82%,
+    rgba(255, 255, 255, 0.5) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.ds-glass-crystal::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: 2;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes previewBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes previewPanelIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes previewBackdropOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes previewPanelOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pageEnterProfile {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pageExit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pageExitBack {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sectionEnter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.mp-fade-in {
+  animation: fadeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mp-rise-in {
+  animation: riseIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mp-page-enter {
+  animation: pageEnter 0.35s ease-in-out both;
+}
+
+.mp-page-enter-profile {
+  animation: pageEnterProfile 0.35s ease-in-out both;
+}
+
+.mp-page-exit {
+  animation: pageExit 0.28s ease-in-out both;
+  pointer-events: none;
+}
+
+.mp-page-exit-back {
+  animation: pageExitBack 0.28s ease-in-out both;
+  pointer-events: none;
+}
+
+.mp-section-enter {
+  animation: sectionEnter 0.32s ease-in-out both;
+}
+
+.mp-skeleton-bone {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.12) 45%,
+    rgba(255, 255, 255, 0.06) 90%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.15s ease-in-out infinite;
+}
+
+.mp-card {
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (min-width: 640px) {
+  .mp-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 560px;
+  }
+}
+
+@media (max-width: 639px) {
+  .mp-card {
+    content-visibility: visible;
+    contain: none;
+  }
+}
+
+/* iOS Safari zooms the page when an editable field is smaller than 16px. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 767px) {
+    .mp-preview-root input,
+    .mp-preview-root textarea,
+    .mp-preview-root select {
+      font-size: 16px !important;
+    }
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mp-card:hover {
+    transform: translateY(-4px);
+  }
+
+  .mp-card:active {
+    transform: translateY(-1px) scale(0.995);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .mp-card,
+  .mp-card:hover,
+  .mp-card:active {
+    transform: none;
+  }
+}
+
+/* Event card poster — always 4:5, 28px radius */
+.mp-card-poster {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 28px;
+  background: #141414;
+}
+
+/*
+ * Progressive blur only (no black scrim/mask) — keeps image presence.
+ * 2 backdrop layers vs progressive-blur's 14+ steps per card.
+ */
+.mp-card-pblur {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 38%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.mp-card-pblur::before,
+.mp-card-pblur::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.mp-card-pblur::before {
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 55%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 55%);
+}
+
+.mp-card-pblur::after {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 25%, #000 85%);
+  mask-image: linear-gradient(to bottom, transparent 25%, #000 85%);
+}
+
+/* Soft text legibility without darkening the photo */
+.mp-card-title {
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.mp-card-meta {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Lightweight badge glass (replaces LiquidGlass on every card) */
+.mp-card-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+
+/* One lightweight glass panel for card copy; replaces the full-width blur layers. */
+.mp-card-info-glass {
+  overflow: hidden;
+  border-radius: 22px;
+  background: rgba(8, 8, 8, 0.42);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+
+/* Glass chip must hug button content — LiquidGlass defaults to stretch */
+.ds-glass-chip,
+.ds-glass-chip > * {
+  width: fit-content !important;
+  max-width: fit-content !important;
+  display: inline-flex !important;
+  flex: 0 0 auto !important;
+}
+
+.mp-preview-root[data-state="open"] .mp-preview-backdrop {
+  animation: previewBackdropIn 0.18s ease-out both;
+}
+
+.mp-preview-root[data-state="open"] .mp-preview-sheet {
+  animation: previewPanelIn 0.22s ease-out both;
+}
+
+.mp-preview-root[data-state="open"] .mp-preview-panel {
+  animation: none;
+}
+
+.mp-preview-root[data-state="open"] .mp-preview-chrome {
+  animation: previewChromeIn 0.2s ease-out both;
+}
+
+.mp-preview-root[data-state="closing"] .mp-preview-backdrop {
+  animation: previewBackdropOut 0.16s ease-in both;
+}
+
+.mp-preview-root[data-state="closing"] .mp-preview-sheet {
+  animation: previewPanelOut 0.18s ease-in both;
+}
+
+.mp-preview-root[data-state="closing"] .mp-preview-panel {
+  animation: none;
+}
+
+.mp-preview-root[data-state="closing"] .mp-preview-chrome {
+  animation: previewChromeOut 0.15s ease-in both;
+}
+
+.mp-preview-root[data-state="closing"] {
+  pointer-events: none;
+}
+
+@keyframes previewChromeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes previewChromeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes iconPop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.mp-icon-pop {
+  animation: iconPop 0.4s ease-in-out;
+  transform-origin: center;
+}
+
+/* Dual price range slider — green thumbs */
+.mp-range-thumb {
+  pointer-events: none;
+  height: 100%;
+}
+
+.mp-range-thumb::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #c5e500;
+  border: 2px solid #070707;
+  box-shadow: 0 0 0 1px rgba(197, 229, 0, 0.35);
+  cursor: pointer;
+  margin-top: 0;
+  position: relative;
+  z-index: 5;
+}
+
+.mp-range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #c5e500;
+  border: 2px solid #070707;
+  box-shadow: 0 0 0 1px rgba(197, 229, 0, 0.35);
+  cursor: pointer;
+}
+
+.mp-range-thumb::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 6px;
+}
+
+.mp-range-thumb::-moz-range-track {
+  background: transparent;
+  height: 6px;
+}
+
+/* Full-screen menu link hover — desktop / fine pointer only */
+.mp-menu-link {
+  transition:
+    background-color 0.2s ease,
+    padding-left 0.2s ease,
+    opacity 0.2s ease;
+  border-radius: 12px;
+}
+
+.mp-menu-chevron {
+  transition: transform 0.2s ease;
+  transform: scaleX(-1);
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 768px) {
+  .mp-menu-link:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    padding-left: 10px;
+    opacity: 1;
+  }
+
+  .mp-menu-link:hover .mp-menu-chevron {
+    transform: scaleX(-1) translateX(-4px);
+  }
+}
+
+/* Registration sheet: lock horizontal pan inside the marketplace modal */
+.mp-registro-shell,
+.mp-registro-shell iframe {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-fade-in,
+  .mp-rise-in,
+  .mp-page-enter,
+  .mp-page-enter-profile,
+  .mp-page-exit,
+  .mp-page-exit-back,
+  .mp-section-enter,
+  .mp-skeleton-bone,
+  .mp-icon-pop,
+  .mp-range-thumb,
+  .mp-preview-root[data-state="open"] .mp-preview-backdrop,
+  .mp-preview-root[data-state="open"] .mp-preview-sheet,
+  .mp-preview-root[data-state="open"] .mp-preview-panel,
+  .mp-preview-root[data-state="open"] .mp-preview-chrome,
+  .mp-preview-root[data-state="closing"] .mp-preview-backdrop,
+  .mp-preview-root[data-state="closing"] .mp-preview-sheet,
+  .mp-preview-root[data-state="closing"] .mp-preview-panel,
+  .mp-preview-root[data-state="closing"] .mp-preview-chrome {
+    animation: none !important;
+  }
+
+  .mp-card,
+  .mp-card:hover,
+  .mp-card:active {
+    transition: none !important;
+    transform: none !important;
+  }
+}
