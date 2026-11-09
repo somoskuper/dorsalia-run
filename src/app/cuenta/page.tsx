@@ -1,6 +1,7 @@
 "use client";
 
 import AccountProfileView from "@/components/account/AccountProfileView";
+import CouponWallet from "@/components/account/CouponWallet";
 import AccountSubpageHeader from "@/components/account/AccountSubpageHeader";
 import SavedRacesView from "@/components/account/SavedRacesView";
 import EditProfileSheet, {
@@ -43,7 +44,7 @@ import {
   type TicketAccessPayload,
 } from "@/lib/ticketAccess";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type Profile = {
   username: string | null;
@@ -108,7 +109,9 @@ export default function CuentaPage() {
   const { items: savedItems, ready: savedReady, refresh: refreshSaved } = useSavedRaces();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab");
+  const pathname = usePathname();
+  const isPurchasesPage = pathname.startsWith("/miscompras");
+  const tabParam = isPurchasesPage ? "historial" : searchParams.get("tab");
   const initialTab: TabId =
     tabParam === "guardados" || tabParam === "perfil" || tabParam === "historial"
       ? tabParam
@@ -123,6 +126,7 @@ export default function CuentaPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editDraft, setEditDraft] = useState<EditProfileDraft | null>(null);
+  const editRequestedRef = useRef(false);
   const [raceMedalIndex, setRaceMedalIndex] = useState<
     Record<string, { url: string; label: string }[]>
   >({});
@@ -152,8 +156,8 @@ export default function CuentaPage() {
   }, [tab, refreshSaved]);
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/auth?next=/cuenta");
-  }, [loading, user, router]);
+    if (!loading && !user) router.replace(`/auth?next=${encodeURIComponent(isPurchasesPage ? "/miscompras" : "/cuenta")}`);
+  }, [loading, user, router, isPurchasesPage]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -200,7 +204,7 @@ export default function CuentaPage() {
         nextProfile.featured_medal_keys = metaKeys.map(String);
       }
       if (!isAthleteOnboarded(meta, nextProfile)) {
-        router.replace("/onboarding?next=/cuenta");
+        router.replace(`/onboarding?next=${encodeURIComponent(isPurchasesPage ? "/miscompras" : "/cuenta")}`);
         return;
       }
       setProfile(nextProfile);
@@ -274,7 +278,7 @@ export default function CuentaPage() {
     try {
       const webp = await convertImageToWebP(file, kind, { square: kind === "avatar", quality: kind === "avatar" ? 0.9 : undefined });
       const supabase = createClient();
-      const path = `athletes/${user.id}-${kind}-${Date.now()}.webp`;
+      const path = `avatars/${user.id}/${kind}-${Date.now()}.webp`;
       const { error } = await supabase.storage.from("public-image").upload(path, webp, {
         upsert: true,
         contentType: "image/webp",
@@ -433,30 +437,34 @@ export default function CuentaPage() {
         completed: true,
       });
     }
+    for (const key of Array.isArray(profile?.featured_medal_keys) ? profile.featured_medal_keys : []) {
+      if (seen.has(key) || key === "dorsalia-first-event") continue;
+      const imageUrl = key.replace(/^[0-9a-f-]{36}-/i, "");
+      if (!imageUrl.startsWith("/") && !imageUrl.startsWith("http")) continue;
+      seen.add(key);
+      out.push({ key, label: "Medalla conseguida", imageUrl, completed: true });
+    }
     return out;
-  }, [purchases, raceMedalIndex, user?.user_metadata?.dorsalia_first_event_badge]);
+  }, [purchases, raceMedalIndex, user?.user_metadata?.dorsalia_first_event_badge, profile?.featured_medal_keys]);
 
   const featuredMedalKeys = useMemo(() => {
     const fromProfile = profile?.featured_medal_keys;
-    const storedKeys = Array.isArray(fromProfile) && fromProfile.length
+    const storedKeys = Array.isArray(fromProfile)
       ? fromProfile.map(String)
       : Array.isArray(user?.user_metadata?.featured_medal_keys)
         ? user.user_metadata.featured_medal_keys.map(String)
         : [];
-    if (user?.user_metadata?.dorsalia_first_event_badge === true) {
-      return ["dorsalia-first-event", ...storedKeys.filter((key) => key !== "dorsalia-first-event")].slice(0, MAX_FEATURED_MEDALS);
-    }
-    if (storedKeys.length) return storedKeys;
+    if (Array.isArray(fromProfile) || Array.isArray(user?.user_metadata?.featured_medal_keys)) return storedKeys.slice(0, 3);
     return null;
   }, [profile, user]);
 
   const displayedMedals = useMemo(() => {
-    if (!featuredMedalKeys) return profileMedals.slice(0, MAX_FEATURED_MEDALS);
+    if (!featuredMedalKeys) return profileMedals.slice(0, 3);
     const byKey = new Map(profileMedals.map((m) => [m.key, m]));
     return featuredMedalKeys
       .map((k) => byKey.get(k))
       .filter((m): m is (typeof profileMedals)[number] => Boolean(m))
-      .slice(0, MAX_FEATURED_MEDALS);
+      .slice(0, 3);
   }, [featuredMedalKeys, profileMedals]);
 
   const profileBio =
@@ -600,6 +608,14 @@ export default function CuentaPage() {
     setEditOpen(true);
   }
 
+  useEffect(() => {
+    if (searchParams.get("edit") !== "1" || !profile || editRequestedRef.current) return;
+    editRequestedRef.current = true;
+    openEditProfile();
+    // The editor opens once after the profile data has loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, searchParams]);
+
   async function saveEditProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!user || !profile || !editDraft) return;
@@ -729,19 +745,20 @@ export default function CuentaPage() {
         ) : (
           <div key="perfil" className="mp-section-enter">
             <AccountProfileView
+              initialTab={searchParams.get("section") === "medallas" ? "retos" : "actividad"}
               displayName={displayName}
               userId={user?.id}
               username={profile?.username || null}
               avatarUrl={profile?.avatar_url || null}
               coverSrc={coverSrc}
-              bio={profileBio}
-              medals={displayedMedals}
+              medals={profileMedals}
+              featuredMedals={displayedMedals.slice(0, 3)}
               reviews={reviews}
               onEdit={openEditProfile}
               onLogout={() => {
                 void handleLogout();
               }}
-              onAvatarClick={openEditProfile}
+              onAvatarClick={() => router.push("/settings/edit-profile/avatar")}
             />
             {msg ? <p className="px-5 text-center text-sm text-white/60">{msg}</p> : null}
             {uploading ? (
@@ -754,6 +771,8 @@ export default function CuentaPage() {
       {tab === "historial" ? (
         showSectionSkeleton ? (
           selectedPurchase ? <PurchaseSummarySkeleton /> : <PurchasesSectionSkeleton />
+        ) : searchParams.get("vista") !== "compras" ? (
+          <CouponWallet userId={user!.id} />
         ) : selectedPurchase ? (
           <div key={`resumen-${selectedPurchase.id}`} className="mp-section-enter">
             <PurchaseSummary
@@ -763,7 +782,7 @@ export default function CuentaPage() {
           </div>
         ) : (
           <section key="historial" className="min-h-screen bg-[#070707] pb-8 mp-section-enter">
-            <AccountSubpageHeader title="Mis compras" />
+            <AccountSubpageHeader title="Mis compras" backHref="/miscompras" />
             <div style={{ paddingLeft: 20, paddingRight: 20, marginTop: 24 }}>
               <PurchasesList
                 items={purchaseItems}

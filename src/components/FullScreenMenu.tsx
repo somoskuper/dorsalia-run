@@ -23,6 +23,7 @@ const SOCIAL = [
 ] as const;
 
 const BASE_LINKS = [
+  { label: "Calendario", href: "/calendario" },
   { label: "Crear tu evento", href: PORTAL_URL, external: true },
   { label: "Editor web", href: EDITOR_URL, external: true },
   { label: "Privacidad", href: "/privacidad" },
@@ -97,13 +98,10 @@ export default function FullScreenMenu({
   const displayName = profile.fullName;
   const initials = (displayName[0] || "A").toUpperCase();
 
-  const links = loggedIn
-    ? [
-        ...BASE_LINKS.slice(0, 2),
-        { label: "Configuración", href: "/cuenta?tab=perfil" },
-        ...BASE_LINKS.slice(2),
-      ]
-    : [...BASE_LINKS];
+  const links = [
+    { label: "Configuración", href: "/settings" },
+    ...BASE_LINKS,
+  ];
 
   useEffect(() => {
     if (open) {

@@ -11,17 +11,17 @@ import { DESK_ICON, DESK_NAV_GAP, DESK_RAIL_W } from "@/lib/appChrome";
 const ICON_MENU = "/branding/Hamburger_MD.svg";
 const ICON_SETTINGS = "/branding/Settings.svg";
 
-type TabId = "home" | "guardados" | "historial" | "perfil";
+type TabId = "feed" | "guardados" | "eventos" | "resenas" | "historial" | "perfil";
 
 function NavIcon({ id, active }: { id: TabId; active: boolean }) {
-  const name = id === "home" ? (active ? "home-2" : "home-stroke")
+  const name = id === "feed" || id === "eventos" ? (active ? "home-2" : "home-stroke")
     : id === "guardados" ? (active ? "heart-solid" : "heart-stroke")
       : (active ? "ticket-solid" : "ticket-stroke");
   return <AssetIcon name={name} size={24} className={active ? "text-white" : "text-white/40"} />;
 }
 
-export default function AppNav() {
-  const { user, loading, profile } = useAthleteAuth();
+export default function AppNav({ inDocumentFlow = false }: { inDocumentFlow?: boolean }) {
+  const { loading, profile } = useAthleteAuth();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
@@ -36,36 +36,48 @@ export default function AppNav() {
     setMenuOpen(false);
   }, [pathname]);
 
-  if (!mounted || loading || !user) return null;
+  if (!mounted || loading) return null;
 
   const avatarUrl = profile.avatarUrl;
   const tabParam = (searchParams.get("tab") || "").toLowerCase();
 
   const activeTab: TabId =
     pathname === "/" || pathname === ""
-      ? "home"
+      ? searchParams.get("vista") === "feed" ? "feed" : "eventos"
+      : pathname.startsWith("/miscompras") ? "historial"
+      : pathname.startsWith("/review") ? "resenas"
       : pathname.startsWith("/cuenta")
         ? tabParam === "guardados"
           ? "guardados"
           : tabParam === "historial"
             ? "historial"
             : "perfil"
-        : "home";
+        : "eventos";
 
   const items: {
     id: TabId;
     href: string;
     label: string;
   }[] = [
-    { id: "home", href: "/", label: "Eventos" },
+    { id: "feed", href: "/?vista=feed", label: "Feed" },
     {
       id: "guardados",
       href: "/cuenta?tab=guardados",
       label: "Guardado",
     },
     {
+      id: "eventos",
+      href: "/?vista=eventos",
+      label: "Eventos",
+    },
+    {
+      id: "resenas",
+      href: "/review",
+      label: "Reseñas",
+    },
+    {
       id: "historial",
-      href: "/cuenta?tab=historial",
+      href: "/miscompras",
       label: "Compras",
     },
   ];
@@ -76,7 +88,7 @@ export default function AppNav() {
   return (
     <>
       <aside
-        className="fixed inset-y-0 left-0 z-50 hidden h-dvh flex-col bg-[#070707] md:flex"
+        className="hidden"
         style={{ width: DESK_RAIL_W }}
         aria-label="Navegación"
       >
@@ -149,7 +161,7 @@ export default function AppNav() {
               )}
             </Link>
             <Link
-              href="/cuenta?tab=perfil"
+              href="/settings"
               className="grid shrink-0 place-items-center"
               style={deskIconStyle}
               aria-label="Configuración"
@@ -179,8 +191,8 @@ export default function AppNav() {
       />
 
       <nav
-        className="fixed inset-x-4 z-40 mx-auto grid max-w-md grid-cols-4 items-center rounded-[28px] border border-white/10 bg-[#212121] px-2 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.35)] md:hidden"
-        style={{ bottom: "max(12px, env(safe-area-inset-bottom))" }}
+        className={`${inDocumentFlow ? "relative mx-auto my-3" : "fixed inset-x-4 z-40 mx-auto"} flex h-[67px] max-w-[363px] items-center justify-between gap-[5px] rounded-[24px] border border-white/10 bg-[rgba(45,45,45,0.6)] p-[6px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-lg lg:hidden`}
+        style={inDocumentFlow ? undefined : { bottom: "max(12px, env(safe-area-inset-bottom))" }}
         aria-label="Navegación"
       >
         {items.map((item) => {
@@ -189,31 +201,16 @@ export default function AppNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex min-h-[52px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl ${active ? "text-white" : "text-white/50"}`}
+              className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-[3px] rounded-[18px] py-[5px] text-white ${active ? "bg-black/35" : ""}`}
               aria-label={item.label}
               aria-current={active ? "page" : undefined}
             >
-              <NavIcon id={item.id} active={active} />
-              <span className="text-[11px] font-medium leading-none">{item.label}</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/tapbar/${item.id}.svg`} alt="" width={30} height={30} className="h-[30px] w-[30px]" style={{ filter: active ? "brightness(0) saturate(100%) invert(89%) sepia(73%) saturate(1087%) hue-rotate(7deg)" : "brightness(0) invert(1)" }} />
+              <span className="text-[10px] font-medium leading-none">{item.label}</span>
             </Link>
           );
         })}
-        <Link
-          href="/cuenta?tab=perfil"
-          className={`flex min-h-[52px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl ${profileActive ? "text-white" : "text-white/50"}`}
-          aria-label="Perfil"
-          aria-current={profileActive ? "page" : undefined}
-        >
-          <span className={`grid h-6 w-6 place-items-center overflow-hidden rounded-full ${profileActive ? "ring-2 ring-[#c5e500]" : ""}`}>
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="" width={24} height={24} className="h-6 w-6 object-cover" />
-            ) : (
-              <AssetIcon name="user-stroke" size={24} />
-            )}
-          </span>
-          <span className="text-[11px] font-medium leading-none">Perfil</span>
-        </Link>
       </nav>
     </>
   );

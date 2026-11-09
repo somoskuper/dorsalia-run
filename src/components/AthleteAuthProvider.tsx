@@ -157,7 +157,8 @@ export default function AthleteAuthProvider({ children }: { children: ReactNode 
           if (mounted) setLoading(false);
         }
       })();
-      const { data: sub } = supabase.auth.onAuthStateChange(async (event, next) => {
+      const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+        setTimeout(async () => {
         if (!mounted) return;
         setSession(next);
         const nextUser = next?.user ?? null;
@@ -182,6 +183,7 @@ export default function AthleteAuthProvider({ children }: { children: ReactNode 
           else setProfile(emptyProfile);
         }
         setLoading(false);
+        }, 0);
       });
       unsubscribe = () => sub.subscription.unsubscribe();
     } catch {

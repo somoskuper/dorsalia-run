@@ -17,8 +17,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
     setMounted(true);
   }, []);
 
+  if (pathname === "/auth") return <main>{children}</main>;
+
   const loggedIn = mounted && !loading && !!user;
-  const isAccount = pathname.startsWith("/cuenta");
+  const isAccount = pathname.startsWith("/cuenta") || pathname.startsWith("/miscompras");
+  const isCouponDetail = /^\/(?:cuenta|miscompras)\/cupones\/[^/]+/.test(pathname);
+  const isSettings = pathname === "/settings" || pathname.startsWith("/settings/");
+  const isCreatorSurface = pathname === "/creator" || pathname.startsWith("/creator/") || pathname.startsWith("/fotos/");
   const isLanding = pathname.startsWith("/iniciar");
   const isSearch = pathname.startsWith("/buscar");
   const isFollowers = pathname.startsWith("/seguidores/");
@@ -26,35 +31,34 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {!isLanding && !isPublicProfile && !isSearch && !isFollowers ? (
+      {!isLanding && !isPublicProfile && !isSearch && !isFollowers && !isCouponDetail && !isSettings && !isCreatorSurface ? (
         <Suspense fallback={null}>
           <AppNav />
         </Suspense>
       ) : null}
-      {!isPublicProfile && !isSearch && !isFollowers ? (
-        <Suspense
-          fallback={isAccount ? null : <div className="h-[65px] bg-[#070707] md:h-[63px]" />}
-        >
-          <MarketplaceNavbar />
-        </Suspense>
-      ) : null}
+      {!isSettings && !isPublicProfile && !isCreatorSurface ? <Suspense fallback={isAccount ? null : <div className="h-[65px] bg-[#070707] lg:h-[63px]" />}>
+        <MarketplaceNavbar />
+      </Suspense> : null}
       <div
         className={
+          isCouponDetail || isSettings || isCreatorSurface
+            ? undefined
+            :
           isLanding
             ? loggedIn
-              ? "md:pt-[63px]"
+              ? "lg:pt-[63px]"
               : undefined
-            : isPublicProfile || isSearch || isFollowers
-            ? undefined
+            : isSearch || isFollowers
+            ? loggedIn ? "lg:pt-[63px]" : undefined
             : loggedIn
             ? isAccount
-              ? "pb-[78px] md:pb-0 md:pl-[63px]"
-              : "pb-[78px] md:pb-0 md:pl-[63px] md:pt-[63px]"
+              ? "pb-[78px] lg:pb-0 lg:pt-[63px]"
+              : "pb-[78px] lg:pb-0 lg:pt-[63px]"
             : undefined
         }
       >
         <main>{children}</main>
-        {!isAccount && !isLanding && !isPublicProfile && !isSearch && !isFollowers ? <SiteFooter /> : null}
+        {!isAccount && !isLanding && !isPublicProfile && !isSearch && !isFollowers && !isSettings && !isCreatorSurface ? <SiteFooter glass={pathname === "/review"} /> : null}
       </div>
       <ActivityComposer />
     </>

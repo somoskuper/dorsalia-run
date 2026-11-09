@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import AccountProfileView from "@/components/account/AccountProfileView";
+import AccountProfileView, { type ProfileMedal } from "@/components/account/AccountProfileView";
 import type { PublicAthleteProfile } from "@/lib/eventReviews";
 import { resolveProfileCover } from "@/lib/profileCovers";
 import { createClient } from "@/lib/supabase/client";
@@ -15,6 +15,7 @@ export default function PublicAthleteProfilePage() {
   const router = useRouter();
   const identifier = decodeURIComponent(String(params.userId || "")).trim();
   const [profile, setProfile] = useState<PublicAthleteProfile | null>(null);
+  const [ratingCount, setRatingCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,6 +27,9 @@ export default function PublicAthleteProfilePage() {
     void request.then(({ data }) => {
       const nextProfile = data && typeof data === "object" ? data as PublicAthleteProfile : null;
       setProfile(nextProfile);
+      if (nextProfile?.user_id) {
+        void supabase.rpc("public_athlete_rating_count", { p_user_id: nextProfile.user_id }).then(({ data: count }) => setRatingCount(Number(count) || 0));
+      }
       setLoading(false);
       if (UUID_PATTERN.test(identifier) && nextProfile?.username) {
         router.replace(`/perfil/${encodeURIComponent(nextProfile.username)}`);
@@ -36,6 +40,13 @@ export default function PublicAthleteProfilePage() {
   if (loading) return <main className="min-h-screen bg-[#070707] px-5 py-24 text-center text-white/45">Cargando perfil…</main>;
   if (!profile) return <main className="min-h-screen bg-[#070707] px-5 py-24 text-center"><p className="text-white/55">Este perfil no está disponible.</p><Link href="/" className="mt-5 inline-block font-bold text-[#c9f24b]">Volver a Dorsalia</Link></main>;
 
+  const featuredMedals: ProfileMedal[] = (profile.featured_medal_keys || []).map((key) => ({
+    key,
+    label: key === "dorsalia-first-event" ? "Primer evento en Dorsalia" : "Medalla conseguida",
+    imageUrl: key === "dorsalia-first-event" ? "/assetsdev/primer-evento-dorsalia.webp" : key.replace(/^[0-9a-f-]{36}-/i, ""),
+    completed: true,
+  })).filter((medal) => medal.imageUrl.startsWith("/") || medal.imageUrl.startsWith("http"));
+
   return <AccountProfileView
     displayName={profile.display_name}
     userId={profile.user_id}
@@ -44,7 +55,9 @@ export default function PublicAthleteProfilePage() {
     coverSrc={resolveProfileCover(profile.cover_url)}
     bio={profile.bio}
     reviews={profile.reviews}
-    medals={[]}
+    publicRatingCount={ratingCount}
+    medals={featuredMedals}
+    featuredMedals={featuredMedals}
     readOnly
     initialTab="actividad"
   />;

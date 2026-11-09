@@ -10,6 +10,7 @@ export async function GET(request: Request) {
   const next = resolvePostAuthNext(url.searchParams.get("next"));
   const reviewIntent = url.searchParams.get("intent") === "review";
   const origin = url.origin;
+  const recovery = url.searchParams.get("intent") === "recovery";
 
   if (code) {
     const cookieStore = await cookies();
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL || "https://portal.dorsalia.run",
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
       {
+        ...(recovery ? { auth: { storageKey: "dorsalia-athlete-auth" } } : {}),
         cookies: {
           getAll() {
             return cookieStore.getAll();
@@ -46,6 +48,12 @@ export async function GET(request: Request) {
     // being written, which previously let brand-new Google accounts skip setup.
     const sessionUser = exchanged.user || (await supabase.auth.getUser()).data.user;
     const user = sessionUser;
+    if (user?.user_metadata?.folio_activation_pending) {
+      return NextResponse.redirect(`${origin}/activar-inscripcion`);
+    }
+    if (recovery && user) {
+      return NextResponse.redirect(new URL(`/auth?mode=reset&next=${encodeURIComponent(next)}`, origin));
+    }
     if (user) {
       const meta = user.user_metadata || {};
       // The onboarding form creates the username-backed profile. An upsert here
@@ -65,6 +73,8 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/auth?error=oauth_session`);
     }
   }
+
+  if (recovery) return NextResponse.redirect(`${origin}/auth?error=recovery`);
 
   if (next.startsWith("http://") || next.startsWith("https://")) {
     return NextResponse.redirect(next);

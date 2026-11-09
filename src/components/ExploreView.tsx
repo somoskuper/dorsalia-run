@@ -18,6 +18,7 @@ import GlassPanel from "@/components/ui/GlassPanel";
 import type { PublicRace } from "@/lib/races";
 import type { MarketplaceAdCard as AdCard } from "@/lib/marketplaceAds";
 import MarketplaceAdCard from "@/components/MarketplaceAdCard";
+import MobileHome from "@/components/MobileHome";
 import {
   billboardSlug,
   marketplaceEventUrl,
@@ -487,7 +488,7 @@ function EventCard({
 function HomeCardRail({ children, advertisements = false }: { children: React.ReactNode; advertisements?: boolean }) {
   return <div aria-label={advertisements ? "Tarjetas de portada" : undefined} aria-roledescription={advertisements ? "carrusel" : undefined} className={advertisements
     ? "-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-auto sm:max-w-[640px] sm:gap-5 lg:mx-0 lg:max-w-none lg:scroll-px-0 lg:px-0"
-    : "-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0 md:gap-6 lg:grid-cols-3 lg:gap-8"}>{children}</div>;
+    : "-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0 md:gap-6 lg:grid-cols-4 lg:gap-5"}>{children}</div>;
 }
 
 function ProgressiveEventGrid({ races, onOpen }: { races: PublicRace[]; onOpen: (race: PublicRace) => void }) {
@@ -619,6 +620,7 @@ export default function ExploreView({
   adCards = [],
   q = "",
   seoHub,
+  mobileSport,
 }: {
   races: PublicRace[];
   adCards?: AdCard[];
@@ -626,12 +628,17 @@ export default function ExploreView({
   q?: string;
   counts?: { all: number; active: number; inactive: number };
   seoHub?: SeoHubContent;
+  mobileSport?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const viewParam = searchParams.get("vista");
   const { filtersOpen, closeFilters } = useMarketplaceSearch();
-  const [filter, setFilter] = useState<FilterTab>("eventos");
+  const [filter, setFilter] = useState<FilterTab>(() => viewParam === "feed" ? "para_ti" : viewParam === "actividad" ? "actividad" : "eventos");
+  useEffect(() => {
+    if (pathname === "/" && viewParam) setFilter(viewParam === "feed" ? "para_ti" : viewParam === "actividad" ? "actividad" : "eventos");
+  }, [pathname, viewParam]);
   const [hubFilter, setHubFilter] = useState<HubFilter>(seoHub?.initialFilter || "upcoming");
   const { user: notificationUser } = useAthleteAuth();
   const [residence, setResidence] = useState("");
@@ -720,21 +727,29 @@ export default function ExploreView({
   const companionAds = adCards.filter((ad) => ad.slug !== "dorsalia");
   const hasSearch =
     Boolean(searchFilters.q) || countActiveFilters(searchFilters) > 0;
+  const showMobileHome = !hasSearch && (mobileSport ? filter === "eventos" : !seoHub && filter === "eventos");
+  const showMobileFeed = !seoHub && !hasSearch && filter === "para_ti";
+  const showMobileActivity = !seoHub && !hasSearch && filter === "actividad";
+  const hideLegacyOnMobile = showMobileHome || showMobileFeed || showMobileActivity;
 
   function openRace(race: PublicRace) {
     router.push(marketplaceEventUrl(race));
   }
 
   return (
-    <div className="relative min-h-screen bg-[#070707] mp-page-enter">
+    <>
+    <SearchFiltersSheet
+      open={filtersOpen}
+      onClose={closeFilters}
+      cities={cities}
+      boundMin={bounds.min}
+      boundMax={bounds.max}
+    />
+    {showMobileHome ? <div className="lg:hidden"><MobileHome races={ordered} residence={residence} selectedSport={mobileSport || "running"} /></div> : null}
+    {showMobileFeed ? <section className="min-h-screen bg-[#070707] pb-24 pt-5 lg:hidden"><h1 className="px-[15px] pb-4 text-[24px] font-normal text-white">Feed</h1><ActivityFeed refreshKey={activityRefresh} emptyText="Aquí aparecerá la actividad de las personas." /></section> : null}
+    {showMobileActivity ? <section className="min-h-screen bg-[#070707] pb-24 pt-5 lg:hidden"><h1 className="px-[15px] pb-4 text-[24px] font-normal text-white">Actividad</h1><SocialNotifications items={notifications} loading={notificationLoading} error={notificationError} signedIn={Boolean(notificationUser)} /></section> : null}
+    <div className={`relative min-h-screen bg-[#070707] mp-page-enter ${hideLegacyOnMobile ? "hidden lg:block" : ""}`}>
       <section className="relative z-10 px-5 pb-16 pt-[30px]">
-        <SearchFiltersSheet
-          open={filtersOpen}
-          onClose={closeFilters}
-          cities={cities}
-          boundMin={bounds.min}
-          boundMax={bounds.max}
-        />
 
         {seoHub ? <SeoHubHero content={seoHub} /> : heroAd ? (
           <div className="mb-[30px] md:mb-10"><HomeCardRail advertisements>{[heroAd, ...companionAds].map((ad) => <div key={ad.id} data-marketplace-ad-slide className="w-[calc(100vw-2.5rem)] max-w-[420px] shrink-0 snap-center lg:w-[calc((100%_-_1.25rem)/2)] lg:max-w-none lg:snap-start"><MarketplaceAdCard ad={ad} variant={ad.slug === "dorsalia" ? "hero" : "card"} /></div>)}</HomeCardRail></div>
@@ -777,7 +792,7 @@ export default function ExploreView({
         {!seoHub && filter === "actividad" ? (
           <div className="w-[calc(100%+2.5rem)] -translate-x-5 md:mx-auto md:w-full md:max-w-2xl md:translate-x-0"><SocialNotifications items={notifications} loading={notificationLoading} error={notificationError} signedIn={Boolean(notificationUser)} /></div>
         ) : !seoHub && filter === "para_ti" ? (
-          <div className="w-[calc(100%+2.5rem)] -translate-x-5 md:mx-auto md:w-full md:max-w-2xl md:translate-x-0"><ActivityFeed followingOnly refreshKey={activityRefresh} emptyText="Sigue personas para ver sus publicaciones aquí." /></div>
+          <div className="w-[calc(100%+2.5rem)] -translate-x-5 md:mx-auto md:w-full md:max-w-2xl md:translate-x-0"><ActivityFeed refreshKey={activityRefresh} emptyText="Aquí aparecerá la actividad de las personas." /></div>
         ) : hasSearch ? (
           <div className="mx-auto max-w-2xl">
             <UserSearchResults query={searchFilters.q || ""} />
@@ -811,5 +826,6 @@ export default function ExploreView({
         ) : filter === "eventos" && !hasSearch ? <HomeDirectoryLinks races={races} /> : null}
       </section>
     </div>
+    </>
   );
 }

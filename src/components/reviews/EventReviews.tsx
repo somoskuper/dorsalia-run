@@ -35,12 +35,12 @@ export function EventRatingSummary({ data, onRate, locked = false, countdown }: 
   return <div className="mt-3 flex flex-wrap items-center gap-2 text-white">
     <StarRating value={data.average} onChange={onRate} size={18} label="Puntúa este evento" />
     <span className="text-sm font-bold">{data.count ? data.average.toFixed(1) : "—"}</span>
-    <span className="text-xs text-white/55">{data.count === 1 ? "1 reseña" : `${data.count} reseñas`}</span>
+    <span className="text-xs text-white/55">{data.count === 1 ? "1 puntuación" : `${data.count} puntuaciones`}</span>
   </div>;
 }
 
-export default function EventReviews({ raceEventId, returnPath, data, loading, onReload }: {
-  raceEventId: string; returnPath: string; data: EventReviewData; loading: boolean; onReload: () => Promise<void>;
+export default function EventReviews({ raceEventId, returnPath, data, loading, onReload, standalone = false }: {
+  raceEventId: string; returnPath: string; data: EventReviewData; loading: boolean; onReload: () => Promise<void>; standalone?: boolean;
 }) {
   const { user, profile } = useAthleteAuth();
   const [profileSetup, setProfileSetup] = useState<"checking" | "complete" | "required">("checking");
@@ -75,9 +75,9 @@ export default function EventReviews({ raceEventId, returnPath, data, loading, o
   }, [user?.id, user?.user_metadata?.athlete_onboarding_done, user?.user_metadata?.profile_setup_required]);
 
   useEffect(() => {
-    setRating(mine?.rating || 0); setComment(mine?.comment || ""); setEditing(!mine);
+    setRating(mine?.rating || data.my_rating || 0); setComment(mine?.comment || ""); setEditing(!mine);
     setPhotos((current) => { current.forEach((photo) => URL.revokeObjectURL(photo.preview)); return []; });
-  }, [mine?.id, mine?.rating, mine?.comment, raceEventId]);
+  }, [mine?.id, mine?.rating, mine?.comment, data.my_rating, raceEventId]);
 
   useEffect(() => {
     const onTopRating = (event: Event) => {
@@ -87,8 +87,10 @@ export default function EventReviews({ raceEventId, returnPath, data, loading, o
       setEditing(true);
       window.setTimeout(() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
     };
+    const onOpenReview = () => { setEditing(true); window.setTimeout(() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); };
+    window.addEventListener("dorsalia:open-review-editor", onOpenReview);
     window.addEventListener("dorsalia:rate-event", onTopRating);
-    return () => window.removeEventListener("dorsalia:rate-event", onTopRating);
+    return () => { window.removeEventListener("dorsalia:open-review-editor", onOpenReview); window.removeEventListener("dorsalia:rate-event", onTopRating); };
   }, []);
 
   async function preparePhotos(selected: File[]) {
@@ -118,6 +120,7 @@ export default function EventReviews({ raceEventId, returnPath, data, loading, o
   async function saveReview(event: React.FormEvent) {
     event.preventDefault();
     if (!user || needsProfileSetup || rating < 1 || rating > 5 || photoProgress !== null) return;
+    if (!comment.trim()) { setMessage("Escribe una reseña antes de publicarla."); return; }
     setSaving(true); setMessage("");
     try {
       const supabase = createClient();
@@ -128,11 +131,12 @@ export default function EventReviews({ raceEventId, returnPath, data, loading, o
           .from("event_reviews")
           .select("id")
           .eq("user_id", user.id)
+          .eq("entry_type", "review")
           .limit(1);
         if (historyError) throw historyError;
         earnsFirstEventBadge = !earlierReviews?.length;
       }
-      const { data: saved, error } = await supabase.from("event_reviews").upsert({ race_event_id: raceEventId, user_id: user.id, rating, comment: comment.trim().slice(0, 2000), is_published: true, updated_at: new Date().toISOString() }, { onConflict: "race_event_id,user_id" }).select("id").single();
+      const { data: saved, error } = await supabase.from("event_reviews").upsert({ race_event_id: raceEventId, user_id: user.id, rating, comment: comment.trim().slice(0, 2000), entry_type: "review", is_published: true, updated_at: new Date().toISOString() }, { onConflict: "race_event_id,user_id" }).select("id").single();
       if (error || !saved?.id) throw error || new Error("No se pudo guardar la reseña");
       for (const [index, photo] of photos.entries()) {
         setPhotoStage(`Subiendo foto ${index + 1} de ${photos.length}`); setPhotoProgress(Math.round(index / photos.length * 100 + 5));
@@ -173,7 +177,7 @@ export default function EventReviews({ raceEventId, returnPath, data, loading, o
   }
 
   function openEditor() {
-    setRating(mine?.rating || 0); setComment(mine?.comment || ""); setEditing(true);
+    setRating(mine?.rating || data.my_rating || 0); setComment(mine?.comment || ""); setEditing(true);
     window.setTimeout(() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 30);
   }
 
@@ -222,13 +226,13 @@ export default function EventReviews({ raceEventId, returnPath, data, loading, o
   const reviewAuthHref = `/auth?mode=register&intent=review&next=${encodeURIComponent(returnPath)}`;
   const reviewOnboardingHref = `/onboarding?intent=review&next=${encodeURIComponent(returnPath)}`;
 
-  return <section id="comentarios" className="mt-10 scroll-mt-6 border-t border-white/10 pt-8 md:mt-14 md:pt-10">
+  return <section id="comentarios" className={standalone ? "mt-5 scroll-mt-6" : "mt-10 scroll-mt-6 border-t border-white/10 pt-8 md:mt-14 md:pt-10"}>
     {showFirstEventBadge ? <FirstEventBadgeModal onClose={() => setShowFirstEventBadge(false)} /> : null}
-    <div><h3 className="text-[24px] font-semibold text-white">Comentarios</h3></div>
+    {!standalone ? <div><h3 className="text-[24px] font-semibold text-white">Comentarios</h3></div> : null}
     {!user ? <div className="mt-6 bg-white/[0.05] px-5 py-6 text-center"><p className="text-sm leading-relaxed text-white/65">Comparte tu experiencia, puntúa el evento y publica tus fotos.</p><Link href={reviewAuthHref} onClick={() => trackMetaCreateAccount("event_review", raceEventId)} className="mt-4 inline-flex rounded-full bg-[#c9f24b] px-6 py-3 text-sm font-bold" style={{ color: "#0a0a0a" }}>Crear cuenta y publicar reseña</Link><p className="mt-3 text-xs text-white/40">Si ya tienes cuenta, podrás iniciar sesión en el siguiente paso.</p></div> : profileSetup === "checking" ? <p className="mt-6 px-5 text-sm text-white/45">Preparando tu perfil…</p> : needsProfileSetup ? <div className="mt-6 bg-white/[0.05] px-5 py-6 text-center"><p className="text-sm leading-relaxed text-white/65">Completa tu perfil y elige tu username antes de publicar.</p><Link href={reviewOnboardingHref} className="mt-4 inline-flex rounded-full bg-[#c9f24b] px-6 py-3 text-sm font-bold" style={{ color: "#0a0a0a" }}>Configurar mi perfil</Link></div> : !mine ? <div className="mt-6">{editor}</div> : null}
-    <div className="-mx-5 mt-6 space-y-0 md:mx-0">
+    <div className={standalone ? "mt-6 space-y-4" : "-mx-5 mt-6 space-y-0 md:mx-0"}>
       {loading ? <p className="px-5 text-sm text-white/45">Cargando reseñas…</p> : data.reviews.length ? data.reviews.slice(0, showAll ? data.reviews.length : 5).map((review) => <div key={review.id} className="w-full">
-        {review.mine && editing ? editor : <ReviewPost authorName={review.author_name} username={review.author_username} avatarUrl={review.author_avatar_url} profileHref={`/perfil/${review.author_username || review.author_user_id}`} rating={review.rating} comment={review.comment} photos={review.photos} updatedAt={review.updated_at} postId={review.activity_post_id} likeCount={Number(review.like_count) || 0} liked={Boolean(review.liked)} action={review.mine ? <PostMenu onEdit={openEditor} onDelete={deleteReview} /> : null} />}
+        {review.mine && editing ? editor : <ReviewPost authorName={review.author_name} username={review.author_username} avatarUrl={review.author_avatar_url} profileHref={`/perfil/${review.author_username || review.author_user_id}`} rating={review.rating} comment={review.comment} photos={review.photos} updatedAt={review.updated_at} postId={review.activity_post_id} likeCount={Number(review.like_count) || 0} liked={Boolean(review.liked)} action={review.mine ? <PostMenu onEdit={openEditor} onDelete={deleteReview} /> : null} variant={standalone ? "reviewPage" : "card"} />}
       </div>) : <p className="px-5 text-sm text-white/45">Todavía no hay reseñas. Sé la primera persona en contar cómo estuvo.</p>}
     </div>
     {data.reviews.length > 5 ? <div className="mt-5 flex justify-center"><button type="button" onClick={() => setShowAll((value) => !value)} className="rounded-full bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur-xl">{showAll ? "Ver menos" : `Ver más (${data.reviews.length - 5})`}</button></div> : null}

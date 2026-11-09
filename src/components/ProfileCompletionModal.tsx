@@ -44,7 +44,7 @@ export default function ProfileCompletionModal() {
     };
   }, []);
 
-  if (!required || pathname === "/onboarding" || pathname.startsWith("/auth")) return null;
+  if (!required || pathname === "/activar-inscripcion" || pathname === "/onboarding" || pathname.startsWith("/auth")) return null;
 
   return (
     <div className="fixed inset-0 z-[100] h-dvh w-screen overflow-y-auto bg-black px-5 py-8 sm:px-8" role="dialog" aria-modal="true" aria-label="Completa tu perfil">

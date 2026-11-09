@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function RaceFacetPage({ params }: Props) {
   const { facet: raw } = await params;
   const { facet, races, isSport, label } = await facetData(raw);
-  if (!races.length) notFound();
+  if (!races.length && !isSport) notFound();
   const isYucatan = facet === "yucatan" && !isSport;
   const title = isYucatan ? "Carreras en Yucatán: calendario y resultados" : isSport ? `${label} en México` : `Carreras en ${label}`;
   const categories = new Map(races.map((race) => [sportCategory(race), sportCategoryLabel(race)]));
@@ -58,7 +58,7 @@ export default async function RaceFacetPage({ params }: Props) {
   const schema = { "@context": "https://schema.org", "@type": "CollectionPage", name: title, description, url: `https://dorsalia.run/carreras/${facet}`, breadcrumb: { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Dorsalia", item: "https://dorsalia.run/" }, { "@type": "ListItem", position: 2, name: "Carreras", item: "https://dorsalia.run/carreras" }, { "@type": "ListItem", position: 3, name: label, item: `https://dorsalia.run/carreras/${facet}` }] }, mainEntity: { "@type": "ItemList", numberOfItems: races.length, itemListElement: races.map((race, index) => ({ "@type": "ListItem", position: index + 1, name: race.name, url: marketplaceEventUrl(race) })) } };
   return <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
-    <ExploreView races={races} seoHub={hub} />
+    <ExploreView races={races} seoHub={hub} mobileSport={isSport && ["running", "padel", "cycling", "triathlon"].includes(facet) ? facet : undefined} />
     {isYucatan ? (
       <section className="bg-[#070707] px-5 pb-20 text-white" aria-labelledby="yucatan-guide-title">
         <div className="mx-auto max-w-6xl border-t border-white/10 pt-10">

@@ -220,6 +220,7 @@ export const SPORT_CATEGORY_LABELS: Record<string, string> = {
   triathlon: "Triatlón",
   duathlon: "Duatlón",
   cycling: "Ciclismo",
+  padel: "Pádel",
   swimming: "Natación",
   walking: "Caminata",
   obstacle: "Carrera de obstáculos",

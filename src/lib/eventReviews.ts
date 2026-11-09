@@ -11,6 +11,8 @@ export type EventReview = {
   id: string;
   author_user_id: string;
   rating: number;
+  entry_type?: "rating" | "review";
+  has_photos?: boolean;
   comment: string;
   created_at: string;
   updated_at: string;
@@ -30,12 +32,17 @@ export type EventReviewData = {
   average: number;
   count: number;
   reviews: EventReview[];
+  review_count: number;
+  my_rating: number | null;
+  my_entry_type: "rating" | "review" | null;
 };
 
 export type AthleteReview = {
   id: string;
   race_event_id: string;
   rating: number;
+  entry_type?: "rating" | "review";
+  has_photos?: boolean;
   comment: string;
   created_at: string;
   updated_at: string;
@@ -54,12 +61,16 @@ export type PublicAthleteProfile = {
   cover_url?: string | null;
   bio?: string | null;
   reviews: AthleteReview[];
+  featured_medal_keys?: string[] | null;
 };
 
 export const EMPTY_EVENT_REVIEWS: EventReviewData = {
   average: 0,
   count: 0,
   reviews: [],
+  review_count: 0,
+  my_rating: null,
+  my_entry_type: null,
 };
 
 export async function fetchEventReviews(raceEventId: string): Promise<EventReviewData> {
@@ -73,5 +84,8 @@ export async function fetchEventReviews(raceEventId: string): Promise<EventRevie
     average: Number(row.average) || 0,
     count: Number(row.count) || 0,
     reviews: Array.isArray(row.reviews) ? row.reviews : [],
+    review_count: Number(row.review_count) || 0,
+    my_rating: row.my_rating == null ? null : Number(row.my_rating),
+    my_entry_type: row.my_entry_type === "review" || row.my_entry_type === "rating" ? row.my_entry_type : null,
   };
 }

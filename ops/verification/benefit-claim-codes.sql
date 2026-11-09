@@ -1,0 +1,35 @@
+BEGIN;
+DO $$
+DECLARE u uuid:=gen_random_uuid();u2 uuid:=gen_random_uuid();b uuid;c uuid;j jsonb;label text:='QA-'||upper(replace(gen_random_uuid()::text,'-',''));n integer;s text;payload jsonb;adminid uuid;
+BEGIN
+ IF has_function_privilege('anon','public.athlete_claim_benefit_folio(text)','execute') OR has_table_privilege('authenticated','public.benefit_claim_attempts','select') THEN RAISE EXCEPTION 'Permisos incorrectos';END IF;
+ INSERT INTO auth.users(id,email,email_confirmed_at,created_at) VALUES(u,u::text||'@example.invalid',now(),now()),(u2,u2::text||'@example.invalid',now(),now());
+ INSERT INTO benefit_campaigns(slug,merchant_name,title,description,terms,benefit_type,state,starts_at,ends_at,claim_enabled,claim_code,max_issues,uses_per_user,text_color,button_label,button_text_color,button_background_color) VALUES(lower(label),'QA','QA','','','other','active',now()-interval '1 day',now()+interval '1 day',true,label,1,2,'#112233','Obtener beneficio','#aabbcc','#334455') RETURNING id INTO b;
+ PERFORM set_config('request.jwt.claim.sub',u::text,true);
+ IF athlete_claim_benefit_folio('inexistente')->>'error' IS NULL THEN RAISE EXCEPTION 'Folio inválido aceptado';END IF;
+ j:=athlete_claim_benefit_folio(lower(label));c:=(j->'coupon'->>'id')::uuid;
+ IF c IS NULL OR j->'coupon'->>'button_label'<>'Obtener beneficio' OR j->'coupon'->>'text_color'<>'#112233' THEN RAISE EXCEPTION 'No asigna estilos/cupón';END IF;
+ IF (j->'coupon'->>'uses_used')::int<>0 OR EXISTS(SELECT 1 FROM benefit_redemptions WHERE coupon_id=c) THEN RAISE EXCEPTION 'Consumió un uso';END IF;
+ j:=athlete_claim_benefit_folio(label);
+ IF j->>'already_owned'<>'true' OR (SELECT count(*) FROM athlete_coupons WHERE campaign_id=b)<>1 THEN RAISE EXCEPTION 'Asignación duplicada';END IF;
+ PERFORM set_config('request.jwt.claim.sub',u2::text,true);
+ IF athlete_claim_benefit_folio(label)->>'error' IS NULL THEN RAISE EXCEPTION 'Excede límite total';END IF;
+ UPDATE benefit_campaigns SET max_issues=NULL,starts_at=now()+interval '1 hour' WHERE id=b;
+ IF athlete_claim_benefit_folio(label)->>'error' IS NULL THEN RAISE EXCEPTION 'Ignora fecha inicial';END IF;
+ UPDATE benefit_campaigns SET starts_at=now()-interval '1 day',ends_at=now()-interval '1 hour' WHERE id=b;
+ IF athlete_claim_benefit_folio(label)->>'error' IS NULL THEN RAISE EXCEPTION 'Ignora vencimiento';END IF;
+ UPDATE benefit_campaigns SET ends_at=now()+interval '1 day',claim_enabled=false WHERE id=b;
+ IF athlete_claim_benefit_folio(label)->>'error' IS NULL THEN RAISE EXCEPTION 'Acepta código deshabilitado';END IF;
+ UPDATE benefit_claim_attempts SET attempts=10,attempt_window=now() WHERE user_id=u2;
+ IF athlete_claim_benefit_folio(label)->>'error' NOT LIKE 'Demasiados intentos%' THEN RAISE EXCEPTION 'No limita intentos';END IF;
+ SELECT pg_get_functiondef(oid) INTO s FROM pg_proc WHERE proname='super_admin_save_benefit';
+ s:=replace(s,'public.super_admin_save_benefit','pg_temp.qa_save_claim');s:=replace(s,'NOT public._super_admin_pin_ok(p_pin)','false');EXECUTE s;
+ payload:=jsonb_build_object('merchant_name','QA','title','QA','description','','terms','','background_color','#fff6ce','benefit_type','other','state','draft','starts_at',now(),'validity_days',15,'uses_per_user',3,'gallery_urls','[]'::jsonb,'social_links','{}'::jsonb,'claim_enabled',true,'claim_code',label||'-2','text_color','#123456','button_background_color','#654321','button_text_color','#fedcba','button_label','Abrir ficha');
+ adminid:=pg_temp.qa_save_claim('qa',payload);
+ IF NOT EXISTS(SELECT 1 FROM benefit_campaigns WHERE id=adminid AND claim_code=label||'-2' AND claim_enabled AND text_color='#123456' AND button_label='Abrir ficha') THEN RAISE EXCEPTION 'No guarda configuración admin';END IF;
+ BEGIN PERFORM pg_temp.qa_save_claim('qa',payload);RAISE EXCEPTION 'Permite folio duplicado';EXCEPTION WHEN unique_violation THEN NULL;END;
+ PERFORM pg_temp.qa_save_claim('qa',payload||jsonb_build_object('id',adminid,'text_color','#000000','button_label','Ver beneficio'));
+ IF NOT EXISTS(SELECT 1 FROM benefit_campaigns WHERE id=adminid AND text_color='#000000' AND button_label='Ver beneficio') THEN RAISE EXCEPTION 'No edita configuración';END IF;
+ RAISE NOTICE 'PASS: folio válido, idempotencia, no consume canje, límite total, fechas, permisos, intentos, estilos y configuración superadmin';
+END $$;
+ROLLBACK;

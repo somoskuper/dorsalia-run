@@ -36,7 +36,7 @@ export default function ActivityComposer() {
     const openShare = (event: Event) => { resetDraft(); setRace((event as CustomEvent<SharedRace>).detail || null); setOpen(true); };
     const openEdit = (event: Event) => {
       const item = (event as CustomEvent<ActivityItem>).detail;
-      resetDraft(); setEditing(item); setBody(item.body || ""); setRating(Number(item.rating) || 0); setExisting(item.photos || []);
+      resetDraft(); setEditing(item); setBody(timedResultCaption(item.body)); setRating(Number(item.rating) || 0); setExisting(item.photos || []);
       if (item.race_event_id && item.event_name) setRace({ id: item.race_event_id, name: item.event_name, slug: item.event_slug, cover: item.event_cover_url });
       setOpen(true);
     };
@@ -87,7 +87,8 @@ export default function ActivityComposer() {
         const { error } = await supabase.from("event_reviews").update({ comment: body.trim().slice(0, 2000), rating, updated_at: new Date().toISOString() }).eq("id", editing.review_id).eq("user_id", user.id);
         if (error) throw error;
       } else if (editing) {
-        const { error } = await supabase.from("activity_posts").update({ body: body.trim().slice(0, 2000), updated_at: new Date().toISOString() }).eq("id", editing.id).eq("user_id", user.id);
+        const nextBody = withTimedResultCaption(editing.body, body.trim().slice(0, 2000));
+        const { error } = await supabase.from("activity_posts").update({ body: nextBody, updated_at: new Date().toISOString() }).eq("id", editing.id).eq("user_id", user.id);
         if (error) throw error;
       } else {
         const { data: post, error } = await supabase.from("activity_posts").insert({ user_id: user.id, post_type: race ? "share" : "free", body: body.trim().slice(0, 2000), race_event_id: race?.id || null }).select("id").single();
@@ -139,4 +140,16 @@ export default function ActivityComposer() {
       {message ? <p className="px-5 pb-5 text-sm text-red-300">{message}</p> : null}
     </form>
   </div>;
+}
+
+function timedResultCaption(value: string) {
+  if (!value?.startsWith("DORSALIA_TIMED_RESULT:")) return value || "";
+  try { return String(JSON.parse(value.slice("DORSALIA_TIMED_RESULT:".length))?.caption || ""); }
+  catch { return value; }
+}
+
+function withTimedResultCaption(original: string, caption: string) {
+  if (!original?.startsWith("DORSALIA_TIMED_RESULT:")) return caption;
+  try { return `DORSALIA_TIMED_RESULT:${JSON.stringify({ ...JSON.parse(original.slice("DORSALIA_TIMED_RESULT:".length)), caption })}`; }
+  catch { return caption; }
 }

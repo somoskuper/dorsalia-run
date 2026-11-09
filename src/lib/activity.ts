@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 export type ActivityPhoto = { id: string; image_url: string; storage_path?: string | null; sort_order: number };
 export type ActivityItem = {
   id: string;
-  post_type: "review" | "registration" | "share" | "free";
+  post_type: "review" | "registration" | "share" | "free" | "creator";
   body: string;
   created_at: string;
   user_id: string;
@@ -15,6 +15,8 @@ export type ActivityItem = {
   event_slug?: string | null;
   event_cover_url?: string | null;
   review_id?: string | null;
+  creator_publication_id?: string | null;
+  gallery_name?: string | null;
   rating?: number | null;
   mine?: boolean;
   like_count?: number;

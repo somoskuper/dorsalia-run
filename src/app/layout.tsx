@@ -8,9 +8,42 @@ import SavedRacesProvider from "@/components/SavedRacesProvider";
 import { MarketplaceSearchProvider } from "@/components/MarketplaceSearchProvider";
 import AppShell from "@/components/AppShell";
 import MarketplacePageMetrics from "@/components/MarketplacePageMetrics";
+import FirstPasswordGate from "@/components/FirstPasswordGate";
 import ProfileCompletionModal from "@/components/ProfileCompletionModal";
 import IniciarMetaPixel from "@/components/IniciarMetaPixel";
 import { MARKETPLACE_HOST } from "@/lib/races";
+import Script from "next/script";
+
+const softwareApplicationSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "@id": "https://dorsalia.run/#software",
+  name: "Dorsalia.run",
+  alternateName: ["Dorsalia México", "Dorsalia Run"],
+  url: "https://dorsalia.run",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web, iOS",
+  description: "Plataforma de gestión de eventos deportivos, venta de boletos e inscripciones en línea en México.",
+  areaServed: {
+    "@type": "Country",
+    name: "Mexico",
+  },
+  publisher: {
+    "@type": "Organization",
+    "@id": "https://dorsalia.run/#organization",
+    name: "Dorsalia",
+    legalName: "Dorsalia",
+    url: "https://dorsalia.run",
+    address: {
+      "@type": "PostalAddress",
+      addressCountry: "MX",
+    },
+    sameAs: [
+      "https://www.instagram.com/dorsalia.run",
+      "https://www.facebook.com/dorsalia.run",
+    ],
+  },
+} as const;
 
 /** Wide display sans (OFL) — closest free stand-in for Joyride Ext. */
 const anybody = Anybody({
@@ -51,6 +84,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="es" className={anybody.variable}>
       <body className={`antialiased bg-black text-white${bare ? " overflow-hidden" : ""}`}>
+        <Script id="dorsalia-gtm-datalayer" strategy="beforeInteractive">
+          {`window.dataLayer = window.dataLayer || [];\nfunction gtag(){dataLayer.push(arguments); }\ngtag('js', new Date());\ngtag('config', 'G-SNKH387NQT');`}
+        </Script>
+        <Script
+          id="dorsalia-ga4-loader"
+          src="https://www.googletagmanager.com/gtag/js?id=G-SNKH387NQT"
+          strategy="beforeInteractive"
+        />
+        <Script
+          id="dorsalia-gtm-loader"
+          src="https://www.googletagmanager.com/gtm.js?id=GTM-N2388NHB"
+          strategy="beforeInteractive"
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(softwareApplicationSchema).replace(/</g, "\\u003c"),
+          }}
+        />
         {bare ? (
           <>
             <ClearLegacyServiceWorker />
@@ -60,6 +112,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <AthleteAuthProvider>
             <MarketplacePageMetrics />
             <IniciarMetaPixel />
+            <FirstPasswordGate>
             <ProfileCompletionModal />
             <SavedRacesProvider>
               <MarketplaceSearchProvider>
@@ -67,6 +120,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <AppShell>{children}</AppShell>
               </MarketplaceSearchProvider>
             </SavedRacesProvider>
+            </FirstPasswordGate>
           </AthleteAuthProvider>
         )}
       </body>

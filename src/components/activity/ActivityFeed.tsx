@@ -6,6 +6,7 @@ import ReviewPost from "@/components/reviews/ReviewPost";
 import PostMenu from "@/components/activity/PostMenu";
 import PostReactions from "@/components/activity/PostReactions";
 import RelativeTime from "@/components/activity/RelativeTime";
+import EventGlassLink from "@/components/activity/EventGlassLink";
 import { fetchActivityFeed, type ActivityItem, type ActivityPhoto } from "@/lib/activity";
 import { createClient } from "@/lib/supabase/client";
 import { publicEventPath, usePublicEventPaths, type EventPaths } from "@/lib/usePublicEventPaths";
@@ -32,16 +33,22 @@ export default function ActivityFeed({ userId, followingOnly = false, refreshKey
     if (!window.confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) return;
     const supabase = createClient();
     const paths = item.photos.map((photo) => photo.storage_path).filter((path): path is string => Boolean(path));
-    if (paths.length) await supabase.storage.from("public-image").remove(paths);
-    const result = item.post_type === "review" && item.review_id
+    const result = item.post_type === "creator" && item.creator_publication_id
+      ? await supabase.from("creator_publications").delete().eq("id", item.creator_publication_id).eq("creator_id", item.user_id)
+      : item.post_type === "review" && item.review_id
       ? await supabase.from("event_reviews").delete().eq("id", item.review_id)
       : await supabase.from("activity_posts").delete().eq("id", item.id);
-    if (!result.error) { setItems((current) => current.filter((post) => post.id !== item.id)); window.dispatchEvent(new Event("dorsalia:activity-published")); }
+    if (result.error) { window.alert(result.error.message); return; }
+    if (item.post_type === "creator") await supabase.from("activity_posts").delete().eq("id", item.id).eq("user_id", item.user_id);
+    if (paths.length) await supabase.storage.from("public-image").remove(paths);
+    setItems((current) => current.filter((post) => post.id !== item.id));
+    window.dispatchEvent(new Event("dorsalia:activity-published"));
   }
 
   function actions(item: ActivityItem) {
-    if (!item.mine || item.post_type === "registration") return null;
-    return <PostMenu onEdit={() => window.dispatchEvent(new CustomEvent("dorsalia:edit-post", { detail: item }))} onDelete={() => remove(item)} />;
+    return <PostMenu postId={item.id} onEdit={item.mine ? () => item.post_type === "creator" && item.creator_publication_id
+      ? window.location.assign(`/creator/new?edit=${item.creator_publication_id}`)
+      : window.dispatchEvent(new CustomEvent("dorsalia:edit-post", { detail: item })) : undefined} onDelete={item.mine ? () => remove(item) : undefined} />;
   }
 
   if (loading) return <div className="grid min-h-40 place-items-center"><span className="h-9 w-9 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" /></div>;
@@ -58,7 +65,7 @@ export default function ActivityFeed({ userId, followingOnly = false, refreshKey
         rating={Number(item.rating) || 0}
         comment={item.body}
         photos={item.photos}
-        fallbackImage={item.event_cover_url}
+        fallbackImage={null}
         eventName={item.event_name}
         eventHref={publicEventPath(eventPaths, item.event_slug)}
         updatedAt={item.created_at}
@@ -68,7 +75,26 @@ export default function ActivityFeed({ userId, followingOnly = false, refreshKey
         action={actions(item)}
         variant="feed"
       />
-    ) : <ActivityCard key={item.id} item={item} action={actions(item)} eventPaths={eventPaths} />)}
+    ) : parseTimedResult(item.body, item.event_slug || "") ? <ActivityCard key={item.id} item={item} action={actions(item)} eventPaths={eventPaths} /> : <ReviewPost
+      key={item.id}
+      authorName={item.display_name}
+      username={item.username}
+      avatarUrl={item.avatar_url}
+      profileHref={`/perfil/${item.username}`}
+      rating={0}
+      comment={item.post_type === "registration" ? `Se inscribió a ${item.event_name || "un evento"}${item.body ? ` · ${item.body}` : ""}` : item.post_type === "share" ? `Compartió ${item.event_name || "un evento"}${item.body ? ` · ${item.body}` : ""}` : item.body}
+      photos={item.photos}
+      fallbackImage={item.event_cover_url}
+      eventName={item.event_name}
+      eventHref={item.post_type === "creator" && item.creator_publication_id ? `/fotos/${encodeURIComponent(item.event_slug || "")}?publicacion=${item.creator_publication_id}` : publicEventPath(eventPaths, item.event_slug)}
+      updatedAt={item.created_at}
+      postId={item.id}
+      likeCount={Number(item.like_count) || 0}
+      liked={Boolean(item.liked)}
+      action={actions(item)}
+      variant="feed"
+      mediaAspect={item.post_type === "creator" || item.photos.length === 0 ? "square" : "portrait"}
+    />)}
   </div>;
 }
 
@@ -89,19 +115,20 @@ function ActivityCard({ item, action, eventPaths }: { item: ActivityItem; action
       {eventHref ? <span className="mt-1 block text-xs font-semibold text-white/45">Ver ficha del evento</span> : null}</span>
   </> : null;
 
-  return <article className="overflow-hidden border-b border-white/10 bg-[#070707] py-5">
+  return <article id={`post-${item.id}`} className="overflow-hidden border-b border-white/10 bg-[#070707] py-5">
     <div className="flex items-center gap-3 px-5">
       <Link href={`/perfil/${item.username}`} className="flex min-w-0 flex-1 items-center gap-3">
         {item.avatar_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={item.avatar_url} alt="" className="h-11 w-11 rounded-full object-cover" /> : <span className="grid h-11 w-11 place-items-center rounded-full bg-white/10 font-bold">{item.display_name.slice(0, 1)}</span>}
-        <div className="min-w-0"><p className="truncate text-sm font-semibold text-white">@{item.username}</p></div>
+        <div className="min-w-0"><p className="truncate text-sm font-semibold text-white">@{item.username}</p><p className="text-[11px] text-white/50"><RelativeTime value={item.created_at} /></p></div>
       </Link>
-      {action}
+      <PostReactions postId={item.id} initialLikes={Number(item.like_count) || 0} initialLiked={Boolean(item.liked)} />
+      {action || <details className="relative"><summary className="list-none cursor-pointer text-2xl leading-none text-white/80" aria-label="Más opciones">⋮</summary><span className="absolute right-0 top-8 z-20 whitespace-nowrap rounded-xl bg-[#181818] px-4 py-3 text-sm text-white">Compartir</span></details>}
     </div>
     {timedResult ? eventHref ? <Link href={eventHref} className="mx-5 mt-4 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition hover:border-[#c9f24b]/50">{resultContent}</Link> : <div className="mx-5 mt-4 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4">{resultContent}</div> : lead ? <p className="px-5 pt-4 text-[15px] leading-relaxed text-white/75"><strong className="text-white">@{item.username}</strong> {lead}</p> : null}
+    {timedResult?.caption ? <p className="whitespace-pre-line px-5 pt-4 text-[15px] leading-relaxed text-white/85">{timedResult.caption}</p> : null}
     {media.length && !timedResult ? <ActivityMedia photos={media} postId={item.id} /> : null}
-    <div className="px-5 pt-4"><PostReactions postId={item.id} initialLikes={Number(item.like_count) || 0} initialLiked={Boolean(item.liked)} /></div>
     {item.body && !timedResult ? <p className="whitespace-pre-line px-5 pt-4 text-[15px] leading-relaxed text-white/85"><strong className="mr-2 text-white">@{item.username}</strong>{item.body}</p> : null}
-    <div className="flex items-center justify-between gap-3 px-5 pt-3"><span className="text-[11px] text-white/35"><RelativeTime value={item.created_at} /></span>{eventHref ? <Link href={eventHref} className="text-xs font-semibold text-[#c9f24b]">Ver evento</Link> : null}</div>
+    {eventHref && timedResult ? <div className="flex justify-end px-5 pt-3"><EventGlassLink href={eventHref} /></div> : null}
   </article>;
 }
 
@@ -109,7 +136,7 @@ function parseTimedResult(body: string, fallbackEventSlug: string) {
   const marker = "DORSALIA_TIMED_RESULT:";
   if (body?.startsWith("Publicó su tiempo de ")) {
     const legacy = body.match(/^Publicó su tiempo de (.+?)(?: en (.+?))?(?: · dorsal (.+?))?\.?$/i);
-    if (legacy?.[1]) return { time: legacy[1].trim(), distance: "", category: legacy[2]?.trim() || "", bib: legacy[3]?.trim() || "", event_slug: fallbackEventSlug };
+    if (legacy?.[1]) return { time: legacy[1].trim(), distance: "", category: legacy[2]?.trim() || "", bib: legacy[3]?.trim() || "", event_slug: fallbackEventSlug, caption: "" };
   }
   if (!body?.startsWith(marker)) return null;
   try {
@@ -121,6 +148,7 @@ function parseTimedResult(body: string, fallbackEventSlug: string) {
       category: typeof value.category === "string" ? value.category : "",
       bib: typeof value.bib === "string" ? value.bib : "",
       event_slug: typeof value.event_slug === "string" && value.event_slug ? value.event_slug : fallbackEventSlug,
+      caption: typeof value.caption === "string" ? value.caption : "",
     };
   } catch {
     return null;

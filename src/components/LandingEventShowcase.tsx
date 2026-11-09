@@ -1,14 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import EventReviews, { EventRatingSummary } from "@/components/reviews/EventReviews";
+import Link from "next/link";
+import { EventRatingSummary } from "@/components/reviews/EventReviews";
 import AssetIcon from "@/components/ui/AssetIcon";
 import {
   EMPTY_EVENT_REVIEWS,
   fetchEventReviews,
   type EventReviewData,
 } from "@/lib/eventReviews";
-import { marketplaceEventPath, type PublicRace } from "@/lib/races";
+import { billboardSlug, type PublicRace } from "@/lib/races";
 
 function eventDate(value: string | null) {
   if (!value) return "Fecha por anunciar";
@@ -25,7 +26,6 @@ function eventDate(value: string | null) {
 
 export default function LandingEventShowcase({ race }: { race: PublicRace }) {
   const [reviewData, setReviewData] = useState<EventReviewData>(EMPTY_EVENT_REVIEWS);
-  const [loading, setLoading] = useState(true);
   const routes = useMemo(() => (race.routes || []).slice(0, 3), [race.routes]);
   const medals = useMemo(() => {
     const visited = new Set<string>();
@@ -37,13 +37,10 @@ export default function LandingEventShowcase({ race }: { race: PublicRace }) {
     });
   }, [routes]);
   const reload = useCallback(async () => {
-    setLoading(true);
     try {
       setReviewData(await fetchEventReviews(race.id));
     } catch {
       setReviewData(EMPTY_EVENT_REVIEWS);
-    } finally {
-      setLoading(false);
     }
   }, [race.id]);
 
@@ -117,7 +114,7 @@ export default function LandingEventShowcase({ race }: { race: PublicRace }) {
           </div>
         </section> : null}
 
-        <EventReviews raceEventId={race.id} returnPath={marketplaceEventPath(race)} data={reviewData} loading={loading} onReload={reload} />
+        {new Date(String(race.event_end_date || race.event_date)).getTime() <= Date.now() ? <Link href={`/review/${encodeURIComponent(billboardSlug(race))}`} className="mt-10 block rounded-2xl border border-white/15 bg-white/[.05] px-5 py-5 text-white"><strong className="block text-xl">Puntuaciones y reseñas</strong><span className="mt-1 block text-sm text-white/60">Ver la ficha de reseñas del evento ›</span></Link> : null}
         </div>
       </div>
     </section>

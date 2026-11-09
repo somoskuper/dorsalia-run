@@ -46,6 +46,7 @@ export const metadata: Metadata = {
 const landingSchema = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
+  "@id": "https://dorsalia.run/#software",
   name: "Dorsalia",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
