@@ -19,7 +19,7 @@ function AuthForm() {
   const next = resolvePostAuthNext(params.get("next"));
   const reviewIntent = params.get("intent") === "review";
   const requestedMode = params.get("mode");
-  const [mode, setMode] = useState<Mode>(requestedMode === "login" || requestedMode === "register" || requestedMode === "reset" ? requestedMode : requestedMode === "folio" ? "login" : "welcome");
+  const [mode, setMode] = useState<Mode>(requestedMode === "reset" ? "reset" : "welcome");
   const [canReset, setCanReset] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -208,6 +208,7 @@ function AuthForm() {
 
   return (
     <div className="auth-stage" data-view={loginView ? "login" : compact ? "form" : "welcome"}>
+      {compact && !loginView ? <div className="auth-blur" aria-hidden /> : null}
       <div className="auth-back">
         <GlassIconButton aria-label="Volver" onClick={back} disabled={loading}>
           {/* eslint-disable-next-line @next/next/no-img-element */}<img src="/assetsdev/Chevron_Right.svg" alt="" />
@@ -261,7 +262,7 @@ function AuthForm() {
               </div>
             </form>
           ) : (
-            <section className="rounded-[22px] border border-white/15 bg-[#101600]/85 p-5 shadow-xl sm:p-6">
+            <section className="auth-sheet">
               <h1 className="text-[24px] font-semibold leading-tight">
                 {pendingEmail ? "Verifica tu correo" :
                   mode === "register" ? (reviewIntent ? "Crea tu cuenta para reseñar" : "Crea tu cuenta") :
@@ -269,20 +270,20 @@ function AuthForm() {
                   "Crea una contraseña nueva"}
               </h1>
               {pendingEmail ? (
-                <form onSubmit={verifyPin} className="mt-4 space-y-4">
+                <form onSubmit={verifyPin} className="auth-fields">
                   <p className="text-sm text-white/80">Verifica <strong className="text-white">{pendingEmail}</strong> para continuar.</p>
                   <Field label="Código de verificación">
                     <input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} className={inputClass + " text-center tracking-[0.35em]"} />
                   </Field>
                   <Feedback error={error} success={success} />
-                  <Button type="submit" disabled={loading || pin.length !== 6} fullWidth>{loading ? "Verificando…" : "Verificar correo"}</Button>
+                  <button type="submit" disabled={loading || pin.length !== 6} className="auth-submit">{loading ? "Verificando…" : "Verificar correo"}</button>
                   <div className="flex flex-wrap justify-between gap-3 text-sm">
                     <button type="button" disabled={loading} onClick={resendPin} className="auth-link">Reenviar código</button>
                     <button type="button" disabled={loading} onClick={() => selectMode("register")} className="auth-link">Cambiar correo</button>
                   </div>
                 </form>
               ) : (
-                <form onSubmit={mode === "recover" || mode === "reset" ? onRecovery : onSubmit} className="mt-4 space-y-4">
+                <form onSubmit={mode === "recover" || mode === "reset" ? onRecovery : onSubmit} className="auth-fields">
                   {mode === "register" && (
                     <div className="grid grid-cols-2 gap-3">
                       <Field label="Nombre"><input required autoComplete="given-name" value={firstName} onChange={e => setFirstName(e.target.value)} className={inputClass} /></Field>
@@ -302,9 +303,9 @@ function AuthForm() {
                     </Field>
                   )}
                   <Feedback error={error} success={success} />
-                  <Button type="submit" disabled={loading || (mode === "reset" && !canReset)} fullWidth>
+                  <button type="submit" disabled={loading || (mode === "reset" && !canReset)} className="auth-submit">
                     {loading ? "Espera…" : mode === "register" ? "Crear cuenta" : mode === "recover" ? "Enviar enlace" : mode === "reset" ? "Guardar contraseña" : "Entrar"}
-                  </Button>
+                  </button>
                 </form>
               )}
             </section>
@@ -324,15 +325,15 @@ function MailIcon() {
 }
 
 function Feedback({ error, success }: { error: string | null; success?: string | null }) {
-  return <>{error && <p role="alert" className="mt-3 rounded-lg bg-black/55 p-2 text-sm text-red-200">{error}</p>}
-    {success && <p role="status" className="text-sm text-lime-100">{success}</p>}</>;
+  return <>{error && <p role="alert" className="text-[14px] text-[#DE5757]">{error}</p>}
+    {success && <p role="status" className="text-[14px] text-white/80">{success}</p>}</>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block space-y-1.5"><span className="text-sm text-white/85">{label}</span>{children}</label>;
+  return <label className="block"><span className="auth-label">{label}</span>{children}</label>;
 }
 
-const inputClass = "min-h-12 w-full rounded-xl border border-white/25 bg-black/25 px-3 text-[16px] text-white outline-none placeholder:text-white/50 focus:border-[#c5e500]";
+const inputClass = "auth-input";
 
 export default function AuthPage() {
   return <Suspense fallback={<div className="auth-stage grid place-items-center" role="status">Cargando…</div>}><AuthForm /></Suspense>;

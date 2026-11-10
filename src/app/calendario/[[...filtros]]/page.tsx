@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { fetchPublicRaces } from "@/lib/races";
 import RaceCalendar from "./RaceCalendar";
+import { ListPageSkeleton } from "@/components/ui/Skeleton";
 
 export const revalidate = 60;
 export const metadata: Metadata = {
@@ -15,7 +17,7 @@ export default async function CalendarPage() {
   const cities = [...new Set(races.map((race) => race.city?.trim()).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, "es-MX"));
   const toSlug = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return <>
-    <RaceCalendar races={races} />
+    <Suspense fallback={<ListPageSkeleton />}><RaceCalendar races={races} /></Suspense>
     <section className="hidden bg-[#070707] px-5 pb-20 text-white md:block" aria-labelledby="calendar-guide-title">
       <div className="mx-auto max-w-7xl border-t border-white/10 pt-10">
         <h2 id="calendar-guide-title" className="text-3xl font-black tracking-tight">Guía del calendario de eventos deportivos en México</h2>

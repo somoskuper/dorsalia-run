@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { resolvePostAuthNext } from "@/lib/safeAuthNext";
 import { isAthleteOnboarded } from "@/lib/athleteProfile";
+import { ATHLETE_AUTH_STORAGE_KEY, athleteCookieDomain } from "@/lib/supabase/client";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL || "https://portal.dorsalia.run",
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
       {
-        ...(recovery ? { auth: { storageKey: "dorsalia-athlete-auth" } } : {}),
+        auth: { storageKey: ATHLETE_AUTH_STORAGE_KEY },
         cookies: {
           getAll() {
             return cookieStore.getAll();
@@ -26,9 +27,11 @@ export async function GET(request: Request) {
           setAll(cookiesToSet) {
             try {
               cookiesToSet.forEach(({ name, value, options }) => {
+                const domain = athleteCookieDomain();
+                const { domain: _domain, ...rest } = options;
                 cookieStore.set(name, value, {
-                  ...options,
-                  domain: process.env.NEXT_PUBLIC_AUTH_COOKIE_DOMAIN || ".dorsalia.run",
+                  ...rest,
+                  ...(domain ? { domain } : {}),
                 });
               });
             } catch {
@@ -40,6 +43,11 @@ export async function GET(request: Request) {
     );
     const { data: exchanged, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
     if (exchangeError) {
+      if (next.startsWith("/settings/")) {
+        const failed = new URL(next, origin);
+        failed.searchParams.set("error", "vinculo");
+        return NextResponse.redirect(failed);
+      }
       return NextResponse.redirect(`${origin}/auth?error=oauth_callback`);
     }
 

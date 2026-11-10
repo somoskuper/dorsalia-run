@@ -133,6 +133,7 @@ export default function CuentaPage() {
   const [eventMetaIndex, setEventMetaIndex] = useState<Record<string, EventMeta>>({});
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseListItem | null>(null);
   const [accountDataReady, setAccountDataReady] = useState(false);
+  const [photographer, setPhotographer] = useState(false);
   const [sectionGate, setSectionGate] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -165,10 +166,11 @@ export default function CuentaPage() {
     const meta = user.user_metadata || {};
     const supabase = createClient();
     (async () => {
-      const [{ data: prof }, { data: regs }, { data: reviewRows }] = await Promise.all([
+      const [{ data: prof }, { data: regs }, { data: reviewRows }, { data: creator }] = await Promise.all([
         supabase.from("athlete_profiles").select("*").eq("user_id", userId).maybeSingle(),
         supabase.rpc("athlete_my_registrations"),
         supabase.rpc("athlete_my_reviews"),
+        supabase.from("creator_profiles").select("creator_type,is_active").eq("user_id", userId).maybeSingle(),
       ]);
       const nextProfile: Profile =
         (prof as Profile) || {
@@ -210,6 +212,7 @@ export default function CuentaPage() {
       setProfile(nextProfile);
       setPurchases(Array.isArray(regs) ? (regs as unknown as Purchase[]) : []);
       setReviews(Array.isArray(reviewRows) ? (reviewRows as unknown as AthleteReview[]) : []);
+      setPhotographer(creator?.creator_type === "photographer" && creator.is_active === true);
       setAccountDataReady(true);
     })();
     // Only reload when the signed-in user changes — not on every metadata updateUser.
@@ -568,6 +571,14 @@ export default function CuentaPage() {
     });
   }, [purchases, eventMetaIndex]);
 
+  useEffect(() => {
+    if (searchParams.get("edit") !== "1" || !profile || editRequestedRef.current) return;
+    editRequestedRef.current = true;
+    openEditProfile();
+    // The editor opens once after the profile data has loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, searchParams]);
+
   if (loading || !user) {
     if (tab === "guardados") return <SavedSectionSkeleton />;
     if (tab === "historial") return <PurchasesSectionSkeleton />;
@@ -607,14 +618,6 @@ export default function CuentaPage() {
     });
     setEditOpen(true);
   }
-
-  useEffect(() => {
-    if (searchParams.get("edit") !== "1" || !profile || editRequestedRef.current) return;
-    editRequestedRef.current = true;
-    openEditProfile();
-    // The editor opens once after the profile data has loaded.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, searchParams]);
 
   async function saveEditProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -759,6 +762,7 @@ export default function CuentaPage() {
                 void handleLogout();
               }}
               onAvatarClick={() => router.push("/settings/edit-profile/avatar")}
+              isPhotographer={photographer}
             />
             {msg ? <p className="px-5 text-center text-sm text-white/60">{msg}</p> : null}
             {uploading ? (

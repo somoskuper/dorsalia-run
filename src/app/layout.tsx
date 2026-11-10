@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Anybody } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
-import ClearLegacyServiceWorker from "@/components/ClearLegacyServiceWorker";
 import AthleteAuthProvider from "@/components/AthleteAuthProvider";
 import SavedRacesProvider from "@/components/SavedRacesProvider";
 import { MarketplaceSearchProvider } from "@/components/MarketplaceSearchProvider";
@@ -13,6 +12,7 @@ import ProfileCompletionModal from "@/components/ProfileCompletionModal";
 import IniciarMetaPixel from "@/components/IniciarMetaPixel";
 import { MARKETPLACE_HOST } from "@/lib/races";
 import Script from "next/script";
+import { preconnect } from "react-dom";
 
 const softwareApplicationSchema = {
   "@context": "https://schema.org",
@@ -80,6 +80,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const h = await headers();
   const bare = h.get("x-dorsalia-chrome") === "off";
+  preconnect((process.env.NEXT_PUBLIC_SUPABASE_URL || "https://portal.dorsalia.run").replace(/\/$/, ""), { crossOrigin: "anonymous" });
 
   return (
     <html lang="es" className={anybody.variable}>
@@ -90,12 +91,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Script
           id="dorsalia-ga4-loader"
           src="https://www.googletagmanager.com/gtag/js?id=G-SNKH387NQT"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
         />
         <Script
           id="dorsalia-gtm-loader"
           src="https://www.googletagmanager.com/gtm.js?id=GTM-N2388NHB"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
         />
         <script
           type="application/ld+json"
@@ -103,9 +104,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             __html: JSON.stringify(softwareApplicationSchema).replace(/</g, "\\u003c"),
           }}
         />
+        <Script id="clear-legacy-service-worker" strategy="beforeInteractive">
+          {`(function(){try{if(!('serviceWorker' in navigator))return;navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister()});});if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k)});});}}catch(e){}})();`}
+        </Script>
         {bare ? (
           <>
-            <ClearLegacyServiceWorker />
             {children}
           </>
         ) : (
@@ -116,7 +119,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <ProfileCompletionModal />
             <SavedRacesProvider>
               <MarketplaceSearchProvider>
-                <ClearLegacyServiceWorker />
                 <AppShell>{children}</AppShell>
               </MarketplaceSearchProvider>
             </SavedRacesProvider>

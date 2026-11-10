@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
+import { askForAccount } from "@/components/account/AccountPrompt";
 import { createClient } from "@/lib/supabase/client";
 import {
   SAVED_RACES_EVENT,
@@ -194,6 +195,12 @@ export default function SavedRacesProvider({ children }: { children: ReactNode }
     async (raceEventId: string) => {
       const id = String(raceEventId);
       const removing = savedIds.has(id);
+
+      if (!user) {
+        if (removing) return removeSaved(id);
+        askForAccount("guardar este evento");
+        return false;
+      }
 
       if (removing) {
         return removeSaved(id);

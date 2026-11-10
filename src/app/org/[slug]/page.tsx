@@ -64,11 +64,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function OrganizerPage({ params }: Props) {
   const { slug } = await params;
-  const data = await fetchPublicOrganizer(slug);
+  const [data, publicRaces] = await Promise.all([fetchPublicOrganizer(slug), fetchPublicRaces({ status: "all" })]);
   if (!data) notFound();
 
   const { organizer, events } = data;
-  const publicRaces = await fetchPublicRaces({ status: "all" });
   const eventPaths = Object.fromEntries(publicRaces.map((race) => [race.id, marketplaceEventPath(race)]));
   const coverSrc =
     organizer.cover_url ||

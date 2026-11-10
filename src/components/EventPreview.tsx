@@ -38,6 +38,7 @@ import EventCommunityQuestions from "@/components/community/EventCommunityQuesti
 import SiteFooter from "@/components/SiteFooter";
 import { downloadCalendarIcs } from "@/lib/calendar";
 import TimedResultsSearch from "@/components/TimedResultsSearch";
+import { Bone } from "@/components/ui/Skeleton";
 
 const ICON_BACK = "/assetsdev/Chevron_Right.svg";
 const ICON_HELP = "/assetsdev/Circle_Help.svg";
@@ -614,15 +615,15 @@ export default function EventPreview({
         <div className="grid min-w-0 max-w-full items-start gap-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:gap-12">
           <div className="min-w-0 max-w-full space-y-4">
             {mainImage ? (
-              <div className={`relative overflow-hidden rounded-[28px] bg-[#141414] shadow-[0_30px_80px_rgba(0,0,0,0.45)] ${indexed ? "min-h-[260px] w-full" : "aspect-[3/4]"} ${nativeEvent ? "border-2 border-[#c9f24b]" : ""}`}>
-                {!mainImageLoaded ? <div className="absolute inset-0 z-[2] grid place-items-center" role="status" aria-label="Cargando portada"><span className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" /></div> : null}
+              <div className={`relative w-full overflow-hidden rounded-[28px] bg-[#141414] shadow-[0_30px_80px_rgba(0,0,0,0.45)] ${nativeEvent ? "border-2 border-[#c9f24b]" : ""}`}>
+                {!mainImageLoaded ? <Bone className="absolute inset-0 z-[2] min-h-[260px] rounded-none" /> : null}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   ref={mainImageRef}
                   src={mainImage}
                   alt={`Portada de ${race.name}`}
                   onLoad={() => setMainImageLoaded(true)}
-                  className={`${indexed ? "relative block h-auto w-full object-contain" : "absolute inset-0 h-full w-full object-cover"} transition-opacity duration-300 ${mainImageLoaded ? "opacity-100" : "opacity-0"}`}
+                  className={`relative block h-auto w-full transition-opacity duration-300 ${mainImageLoaded ? "opacity-100" : "opacity-0"}`}
                 />
                 {indexed && (race.source_credit || race.source_name) ? (
                   <a

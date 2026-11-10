@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { useMarketplaceSearch } from "@/components/MarketplaceSearchProvider";
 import { useSavedRaces } from "@/components/SavedRacesProvider";
 import { topRatedRaces } from "@/lib/topRatedRaces";
 import { reviewDirectory } from "@/lib/reviewDirectory";
 import ReviewRaceRow from "@/components/reviews/ReviewRaceRow";
+import EventPhotoRail from "@/components/activity/EventPhotoRail";
 import AssetIcon from "@/components/ui/AssetIcon";
 import {
   billboardSlug,
@@ -106,8 +106,7 @@ function WeeklyCard({ race }: { race: PublicRace }) {
   </Link>;
 }
 
-export default function MobileHome({ races, residence = "", selectedSport = "running" }: { races: PublicRace[]; residence?: string; selectedSport?: string }) {
-  const { toggleFilters } = useMarketplaceSearch();
+export default function MobileHome({ races, residence = "", selectedSport = "running", photoRail }: { races: PublicRace[]; residence?: string; selectedSport?: string; photoRail?: React.ReactNode }) {
   const sportRaces = useMemo(() => races.filter((race) => normalize(race.sport_category || "running") === selectedSport), [races, selectedSport]);
   const best = useMemo(() => topRatedRaces(sportRaces, 12), [sportRaces]);
   const weekly = useMemo(() => {
@@ -131,15 +130,6 @@ export default function MobileHome({ races, residence = "", selectedSport = "run
   const activeLabel = SPORTS.find((sport) => sport.id === selectedSport)?.label || "Running";
 
   return <div className="min-h-screen bg-[#0e0e0e] pb-24 text-white">
-    <div className="px-[17px] pt-4">
-      <div className="flex h-[46px] items-center rounded-full border-2 border-white/25 text-[16px]">
-        <Link href="/buscar" className="min-w-0 flex-1 pl-[28px] text-white/50">Buscar eventos</Link>
-        <span className="h-8 w-px bg-white/25" aria-hidden="true" />
-        <button type="button" onClick={toggleFilters} aria-label="Abrir filtros" className="grid h-full w-[60px] place-items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}<img src={`${ASSETS}/imgGroup.svg`} alt="" width={24} height={22} className="opacity-50" />
-        </button>
-      </div>
-    </div>
     <nav aria-label="Deportes" className="mt-[28px] flex gap-[10px] overflow-x-auto px-[17px] pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {SPORTS.map((sport) => <Link key={sport.id} href={sport.href} aria-current={selectedSport === sport.id ? "page" : undefined} className={`flex shrink-0 items-center gap-[6px] rounded-full px-[15px] py-[10px] text-[16px] leading-[24px] ${selectedSport === sport.id ? "bg-[#f2f2f2]" : "bg-[#2d2d2d]"}`} style={{ color: selectedSport === sport.id ? "#0e0e0e" : "#ffffff" }}>
         {sport.icon ? /* eslint-disable-next-line @next/next/no-img-element */<img src={`${ASSETS}/${sport.icon}`} alt="" width={24} height={24} className={selectedSport === sport.id ? "brightness-0" : "brightness-0 invert"} /> : null}
@@ -160,6 +150,8 @@ export default function MobileHome({ races, residence = "", selectedSport = "run
       <SectionTitle href="/carreras/mejor-valoradas">Mejores valorados</SectionTitle>
       <div className="flex gap-[15px] overflow-x-auto overscroll-x-contain px-[17px] pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{best.map((race) => <SquareCard key={race.id} race={race} />)}</div>
     </section> : <p className="mx-[17px] mt-8 text-[16px] text-white/60">Aún no hay eventos de {activeLabel.toLowerCase()} publicados.</p>}
+
+    <div className="contents">{photoRail ?? <EventPhotoRail />}</div>
 
     {weekly.length ? <section className="mt-[32px]"><SectionTitle href="/carreras/esta-semana">Próxima semana</SectionTitle>
       <div className="flex gap-4 overflow-x-auto overscroll-x-contain px-[17px] pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{weekly.map((race) => <WeeklyCard key={race.id} race={race} />)}</div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/PageHeader";
+import CardImage from "@/components/media/CardImage";
 import { createClient } from "@/lib/supabase/client";
 
 export default function CreatorPortfolioGallery({ userId }: { userId: string }) {
@@ -18,5 +19,5 @@ export default function CreatorPortfolioGallery({ userId }: { userId: string }) 
       });
     return () => { active = false; };
   }, [userId]);
-  return <div className="px-[15px] pb-20"><PageHeader fallbackHref={`/perfil/${userId}`} title="Galería" sticky /><main className="mx-auto mt-10 max-w-[640px]"><h1 className="text-[20px] font-semibold">Galería</h1>{photos.length ? <div className="mt-[10px] grid grid-cols-2 gap-[10px]">{photos.map((photo) => /* eslint-disable-next-line @next/next/no-img-element */ <img key={photo.id} src={photo.image_url} alt="Fotografía del portafolio" className="aspect-square w-full rounded-[20px] object-cover" />)}</div> : <p className="mt-5 text-white/50">No hay fotografías destacadas.</p>}</main></div>;
+  return <div className="px-[15px] pb-20"><PageHeader fallbackHref={`/perfil/${userId}`} title="Galería" sticky /><main className="mx-auto mt-10 max-w-[640px]"><h1 className="text-[20px] font-semibold">Galería</h1>{photos.length ? <div className="mt-[10px] grid grid-cols-2 gap-[10px]">{photos.map((photo) => <CardImage key={photo.id} src={photo.image_url} alt="Fotografía del portafolio" className="aspect-square w-full rounded-[20px] object-cover" />)}</div> : <p className="mt-5 text-white/50">No hay fotografías destacadas.</p>}</main></div>;
 }

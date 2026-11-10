@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { APP_RELEASE, CONTACT_EMAIL } from "@/lib/release";
 import { PORTAL_URL } from "@/lib/races";
 
 const year = new Date().getFullYear();
@@ -13,7 +14,10 @@ export default function SiteFooter({ glass = false }: { glass?: boolean }) {
             Marketplace de carreras Dorsalia
             <br />
             México
+            <br />
+            {APP_RELEASE}
           </p>
+          <a href={`mailto:${CONTACT_EMAIL}`} className="mt-3 inline-block text-sm text-[var(--muted)] hover:text-white">{CONTACT_EMAIL}</a>
         </div>
         <div>
           <p className="text-[var(--accent)] text-lg font-akira">Sitio web</p>
@@ -85,7 +89,7 @@ export default function SiteFooter({ glass = false }: { glass?: boolean }) {
             <Link href="/normas-comunidad" className="hover:text-white/60 text-[11px]">
               Normas
             </Link>
-            <span>© {year} Dorsalia · México · Derechos reservados</span>
+            <span>© {year} Dorsalia · México · {APP_RELEASE}</span>
             <p className="basis-full text-center text-[10px] leading-relaxed text-[var(--muted)]">
               Dorsalia.run es una plataforma tecnológica desarrollada en México para la gestión, boletaje y publicación de eventos deportivos. No mantenemos relación ni afiliación con fabricantes de insumos físicos o empresas de imprenta internacionales.
             </p>

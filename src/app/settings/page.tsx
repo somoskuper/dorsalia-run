@@ -19,35 +19,35 @@ const settings = [
 ] as const;
 
 const purchaseSettings = [
-  { label: "Mis compras", icon: "Money-2.svg" },
-  { label: "Mis inscripciones", icon: "ticket-expired.svg" },
-  { label: "Método de pago", icon: "Money-1.svg" },
-  { label: "Facturación y comprobantes", icon: "Money.svg" },
-  { label: "Reembolsos y cancelaciones", icon: "refresh-square-2.svg" },
+  { label: "Mis compras", icon: "Money-2.svg", href: "/miscompras?vista=compras" },
+  { label: "Mis inscripciones", icon: "ticket-expired.svg", href: "/miscompras?vista=compras" },
+  { label: "Método de pago", icon: "Money-1.svg", pending: true },
+  { label: "Facturación y comprobantes", icon: "Money.svg", pending: true },
+  { label: "Reembolsos y cancelaciones", icon: "refresh-square-2.svg", pending: true },
 ] as const;
 
 const communitySettings = [
-  { label: "Clubes y grupos", icon: "community-users.svg" },
-  { label: "Seguidores y seguidos", icon: "community-users.svg" },
-  { label: "Interacciones", icon: "community-heart.svg" },
+  { label: "Clubes y grupos", icon: "community-users.svg", pending: true },
+  { label: "Seguidores y seguidos", icon: "community-users.svg", href: "/settings/comunidad" },
+  { label: "Interacciones", icon: "community-heart.svg", pending: true },
 ] as const;
 
 const preferenceSettings = [
-  { label: "Deportes e intereses", icon: "swimming.svg" },
-  { label: "Notificaciones", icon: "Notifications.svg" },
+  { label: "Deportes e intereses", icon: "swimming.svg", pending: true },
+  { label: "Notificaciones", icon: "Notifications.svg", pending: true },
 ] as const;
 
 const privacySettings = [
-  { label: "Privacidad del perfil", icon: "privacy-security.svg" },
-  { label: "Cuentas bloqueadas", icon: "privacy-blocked.svg" },
-  { label: "Contraseña y seguridad", icon: "privacy-password.svg" },
-  { label: "Sesiones y dispositivos", icon: "privacy-devices.svg" },
+  { label: "Privacidad del perfil", icon: "privacy-security.svg", pending: true },
+  { label: "Cuentas bloqueadas", icon: "privacy-blocked.svg", pending: true },
+  { label: "Contraseña y seguridad", icon: "privacy-password.svg", href: "/settings/seguridad" },
+  { label: "Sesiones y dispositivos", icon: "privacy-devices.svg", pending: true },
 ] as const;
 
 const helpSettings = [
-  { label: "Ayuda y soporte", icon: "info-help.svg" },
-  { label: "Gestión de datos", icon: "info-data.svg" },
-  { label: "Información legal", icon: "info-legal.svg" },
+  { label: "Ayuda y soporte", icon: "info-help.svg", href: "/settings/ayuda" },
+  { label: "Gestión de datos", icon: "info-data.svg", pending: true },
+  { label: "Información legal", icon: "info-legal.svg", href: "/settings/legal" },
 ] as const;
 
 export default function SettingsPage() {

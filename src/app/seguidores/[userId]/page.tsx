@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import GlassIconButton from "@/components/account/GlassIconButton";
 import { createClient } from "@/lib/supabase/client";
+import { ListRowsSkeleton } from "@/components/ui/Skeleton";
 
 type Person = { user_id: string; username: string | null; display_name: string; avatar_url: string | null };
 
@@ -48,7 +49,7 @@ export default function SeguidoresPage() {
         <h1 className="text-xl font-bold">{kind === "followers" ? "Seguidores" : "Siguiendo"}</h1>
       </header>
       <div className="mx-auto max-w-2xl py-3">
-        {loading ? <div className="grid min-h-40 place-items-center"><span className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" aria-label="Cargando seguidores" /></div> : error ? <p className="px-5 py-12 text-center text-sm text-white/50">No pudimos cargar la lista. <button type="button" onClick={() => { setLoading(true); void refresh(); }} className="text-[#c9f24b]">Reintentar</button></p> : people.length ? people.map((person) => (
+        {loading ? <ListRowsSkeleton count={8} label="Cargando seguidores" /> : error ? <p className="px-5 py-12 text-center text-sm text-white/50">No pudimos cargar la lista. <button type="button" onClick={() => { setLoading(true); void refresh(); }} className="text-[#c9f24b]">Reintentar</button></p> : people.length ? people.map((person) => (
           <Link key={person.user_id} href={`/perfil/${person.username || person.user_id}`} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-white/[0.05]">
             {person.avatar_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={person.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-full bg-white/10 font-bold">{person.display_name.slice(0, 1).toUpperCase()}</span>}
             <span className="min-w-0"><strong className="block truncate text-sm">{person.username ? `@${person.username}` : person.display_name}</strong>{person.username ? <span className="block truncate text-sm text-white/45">{person.display_name}</span> : null}</span>

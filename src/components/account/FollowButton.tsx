@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
+import { askForAccount } from "@/components/account/AccountPrompt";
 import { createClient } from "@/lib/supabase/client";
 
 export default function FollowButton({ targetUserId }: { targetUserId: string }) {
@@ -36,7 +37,7 @@ export default function FollowButton({ targetUserId }: { targetUserId: string })
 
   async function toggle() {
     if (!user) {
-      window.location.href = `/auth?next=${encodeURIComponent(`/perfil/${targetUserId}`)}`;
+      askForAccount("seguir", `/perfil/${targetUserId}`);
       return;
     }
     setSaving(true);

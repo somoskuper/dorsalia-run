@@ -6,6 +6,7 @@ import StarRating from "@/components/reviews/StarRating";
 import { convertImageToWebP } from "@/lib/convertImageToWebP";
 import { isAthleteOnboarded } from "@/lib/athleteProfile";
 import type { ActivityItem, ActivityPhoto } from "@/lib/activity";
+import { askForAccount } from "@/components/account/AccountPrompt";
 import { createClient } from "@/lib/supabase/client";
 
 type SharedRace = { id: string; name: string; slug?: string | null; cover?: string | null };
@@ -25,6 +26,8 @@ export default function ActivityComposer() {
   const [progress, setProgress] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const userRef = useRef(user);
+  userRef.current = user;
 
   function resetDraft() {
     setPhotos((current) => { current.forEach((photo) => URL.revokeObjectURL(photo.preview)); return []; });
@@ -32,8 +35,8 @@ export default function ActivityComposer() {
   }
 
   useEffect(() => {
-    const openFree = () => { resetDraft(); setOpen(true); };
-    const openShare = (event: Event) => { resetDraft(); setRace((event as CustomEvent<SharedRace>).detail || null); setOpen(true); };
+    const openFree = () => { if (!userRef.current) { askForAccount("publicar"); return; } resetDraft(); setOpen(true); };
+    const openShare = (event: Event) => { if (!userRef.current) { askForAccount("compartir este evento"); return; } resetDraft(); setRace((event as CustomEvent<SharedRace>).detail || null); setOpen(true); };
     const openEdit = (event: Event) => {
       const item = (event as CustomEvent<ActivityItem>).detail;
       resetDraft(); setEditing(item); setBody(timedResultCaption(item.body)); setRating(Number(item.rating) || 0); setExisting(item.photos || []);
@@ -64,7 +67,7 @@ export default function ActivityComposer() {
 
   async function publish(event: React.FormEvent) {
     event.preventDefault();
-    if (!user) { window.location.href = "/auth?next=/"; return; }
+    if (!user) { askForAccount("publicar"); return; }
     if (!editing && !race && !body.trim() && !photos.length) return;
     if (editing?.post_type === "review" && rating < 1) return;
     setSaving(true); setMessage("");

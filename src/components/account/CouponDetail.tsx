@@ -6,6 +6,7 @@ import { useAthleteAuth } from "@/components/AthleteAuthProvider";
 import GlassIconButton from "@/components/account/GlassIconButton";
 import GlassPanel from "@/components/ui/GlassPanel";
 import { fetchMyCoupon, redeemMyCoupon, type AthleteCoupon } from "@/lib/athleteCoupons";
+import { Bone } from "@/components/ui/Skeleton";
 
 const SOCIALS = [
   { src: "/assetsdev/Social-Icons-4.svg", key: "facebook", label: "Facebook" },
@@ -70,7 +71,7 @@ export default function CouponDetail({ id }: { id: string }) {
   return <main className="min-h-[100svh] w-full text-white" style={{ backgroundColor: background, color: textColor, ["--coupon-background" as string]: background, marginTop: "calc(-1 * env(safe-area-inset-top, 0px))", paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
     <section className="mx-auto flex min-h-[100svh] w-full max-w-[520px] flex-col px-5 pb-8 sm:px-6">
       <CouponDetailHeader available={Boolean(available)} remaining={coupon?.uses_remaining ?? 1} textColor={textColor} />
-      {loading ? <p className="py-20 text-center text-white/70">Cargando cupón…</p> : coupon ? <>
+      {loading ? <div className="pt-6" role="status" aria-busy="true" aria-label="Cargando cupón"><Bone style={{ height: 220, borderRadius: 28 }} /><Bone className="mt-6" style={{ width: "70%", height: 24, borderRadius: 8 }} /><Bone className="mt-3" style={{ width: "90%", height: 14, borderRadius: 6 }} /><Bone className="mt-2" style={{ width: "60%", height: 14, borderRadius: 6 }} /></div> : coupon ? <>
         <div className="mt-10 flex min-h-[190px] items-center justify-center">
           {coupon.logo_url ? /* eslint-disable-next-line @next/next/no-img-element */<img src={coupon.logo_url} alt={coupon.merchant_name} width={240} height={190} className="max-h-[190px] w-[240px] object-contain" /> : <p className="text-center text-[30px] font-bold">{coupon.merchant_name}</p>}
         </div>

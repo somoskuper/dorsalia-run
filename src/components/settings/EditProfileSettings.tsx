@@ -11,6 +11,7 @@ import { MX_STATES } from "@/lib/mxStates";
 import { normalizeUsername, usernameError } from "@/lib/usernames";
 import ProfileIdentity from "@/components/account/ProfileIdentity";
 import { resolveProfileCover } from "@/lib/profileCovers";
+import { SettingsFieldsSkeleton } from "@/components/ui/Skeleton";
 
 export type FieldKey = "username" | "first_name" | "last_name" | "phone" | "gender" | "preferred_shirt_size" | "residence";
 type Fields = Record<FieldKey, string>;
@@ -141,13 +142,13 @@ export default function EditProfileSettings({ field }: { field?: FieldKey }) {
     }
   }
 
-  if (!fields && !field) return <p className="text-sm text-white/50">Cargando perfil…</p>;
+  if (!fields && !field) return <SettingsFieldsSkeleton />;
 
   const activeTitle = fieldDetails.find((item) => item.key === active)?.title || "";
   const options = active === "gender" ? GENDERS : active === "preferred_shirt_size" ? SHIRT_SIZES : active === "residence" ? MX_STATES : null;
   if (field) return <>
     <PageHeader fallbackHref="/settings/edit-profile" title={activeTitle} saveFormId="profile-field-form" saveDisabled={!fields || saving || (field === "username" && usernameStatus !== "available")} sticky />
-    <main className="mx-auto w-full max-w-[640px]">{!fields ? <p className="mt-10 text-sm text-white/50">Cargando perfil…</p> : <form id="profile-field-form" onSubmit={(event) => void saveField(event)} className="mt-10">
+    <main className="mx-auto w-full max-w-[640px]">{!fields ? <SettingsFieldsSkeleton /> : <form id="profile-field-form" onSubmit={(event) => void saveField(event)} className="mt-10">
     <h2 className="text-[20px] font-semibold">{field === "username" ? "Cambiar nombre de usuario" : `Cambiar ${activeTitle.toLowerCase()}`}</h2>
     {options ? <select value={draft} onChange={(event) => setDraft(event.target.value)} className="mt-[10px] h-[44px] w-full rounded-full bg-[#191919] px-[15px] text-[16px] text-white outline-none"><option value="">Seleccionar</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>
       : <input type={field === "phone" ? "tel" : "text"} maxLength={30} value={field === "username" ? `@${draft}` : draft} onChange={(event) => setDraft(field === "username" ? event.target.value.replace(/^@/, "") : event.target.value)} className="mt-[10px] h-[44px] w-full rounded-full bg-[#191919] px-[15px] text-[16px] text-white outline-none placeholder:text-white/50" />}
@@ -159,7 +160,7 @@ export default function EditProfileSettings({ field }: { field?: FieldKey }) {
   </form>}</main>
   </>;
 
-  if (!fields) return <p className="text-sm text-white/50">Cargando perfil…</p>;
+  if (!fields) return <SettingsFieldsSkeleton />;
 
   return <>
     <ProfileIdentity displayName={[fields.first_name, fields.last_name].filter(Boolean).join(" ") || "Atleta"} username={fields.username} avatarUrl={media.avatarUrl} coverSrc={resolveProfileCover(media.coverUrl)} editMode />

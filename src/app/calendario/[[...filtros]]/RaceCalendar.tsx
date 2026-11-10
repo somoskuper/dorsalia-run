@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import EventSearchBar from "@/components/search/EventSearchBar";
 import type { PublicRace } from "@/lib/races";
+import { filterRaces, filtersFromSearchParams } from "@/lib/raceSearch";
 
 const SPORTS = [["running", "Running"], ["trail", "Trail"], ["cycling", "Ciclismo"], ["triathlon", "Triatlón"], ["swimming", "Natación"], ["padel", "Pádel"]];
 const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -12,6 +14,8 @@ const money = (n: number, currency: string) => n <= 0 ? "Gratis" : `$${n.toLocal
 export default function RaceCalendar({ races }: { races: PublicRace[] }) {
   const router = useRouter();
   const params = useParams<{ filtros?: string[] }>();
+  const searchParams = useSearchParams();
+  const searchFilters = useMemo(() => filtersFromSearchParams(new URLSearchParams(searchParams.toString())), [searchParams]);
   const parts = params.filtros || [];
   const year = parts[0] && /^\d{4}$/.test(parts[0]) ? parts[0] : "";
   const ci = parts.indexOf("ciudad");
@@ -26,9 +30,10 @@ export default function RaceCalendar({ races }: { races: PublicRace[] }) {
     if (c) path.push("ciudad", slug(c));
     if (s) path.push("tipo", s);
     if (p) path.push(p);
-    router.push(path.join("/"));
+    const qs = searchParams.toString();
+    router.push(qs ? `${path.join("/")}?${qs}` : path.join("/"));
   };
-  const filtered = useMemo(() => races.filter(r => {
+  const filtered = useMemo(() => filterRaces(races, searchFilters).filter(r => {
     const d = r.event_date ? new Date(r.event_date) : null;
     return (!year || (!!d && String(d.getFullYear()) === year)) && (!city || slug(`${r.city || ""}-${r.state || ""}`).includes(city) || slug(r.city || "").includes(city)) && (!sport || (r.sport_category || "running") === sport) && (!price || (price === "gratis" ? r.is_free || (r.min_price ?? r.default_kit_price) <= 0 : !r.is_free && (r.min_price ?? r.default_kit_price) > 0));
   }).sort((a,b) => {
@@ -37,10 +42,11 @@ export default function RaceCalendar({ races }: { races: PublicRace[] }) {
     const aUpcoming = aDate >= Date.now(), bUpcoming = bDate >= Date.now();
     if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
     return aUpcoming ? aDate - bDate : bDate - aDate;
-  }), [races, year, city, sport, price]);
+  }), [races, searchFilters, year, city, sport, price]);
   const cities = [...new Set(races.map(r => r.city).filter((v): v is string => !!v))].sort();
   return <main className="min-h-screen bg-[#070707] px-4 pb-24 pt-28 text-white md:px-8"><div className="mx-auto max-w-7xl">
     <p className="font-mono text-xs uppercase tracking-[.22em] text-[#c9f24b]">Dorsalia · Calendario nacional</p><h1 className="mt-3 text-4xl font-black uppercase tracking-tight md:text-6xl">Eventos deportivos en México</h1><p className="mt-3 max-w-2xl text-sm text-white/55">Encuentra eventos de enero a diciembre, compara distancias y consulta dónde inscribirte.</p>
+    <EventSearchBar races={races} className="mt-6 max-w-[720px]" />
     <section className="mt-7 border-y border-white/10 py-4"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label className="text-xs text-white/55">Año<select value={year} onChange={e=>change({year:e.target.value})} className="mt-1 block w-full border-b border-white/20 bg-transparent py-2 text-sm text-white"><option value="">Todos</option><option value="2026">2026</option><option value="2027">2027</option><option value="2025">2025</option></select></label>
       <label className="text-xs text-white/55">Ciudad<select value={city} onChange={e=>change({city:e.target.value})} className="mt-1 block w-full border-b border-white/20 bg-transparent py-2 text-sm text-white"><option value="">Todo México</option>{cities.map(c=><option key={c} value={slug(c)}>{c}</option>)}</select></label>

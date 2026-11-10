@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import GlassIconButton from "@/components/account/GlassIconButton";
 import GlassPanel from "@/components/ui/GlassPanel";
 import { claimCouponByFolio, fetchMyCoupons, type AthleteCoupon } from "@/lib/athleteCoupons";
+import { Bone } from "@/components/ui/Skeleton";
 
 const GLASS = { glassColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.25)", blur: 16, frost: 0, saturation: 130, aberrationIntensity: 0.02 };
 
@@ -69,7 +70,7 @@ export default function CouponWallet({ userId }: { userId: string }) {
       {claimError&&<p role="alert" className="text-[13px] text-red-300">{claimError}</p>}{claimNotice&&<p role="status" className="text-[13px] text-[#c9f24b]">{claimNotice}</p>}
     </form>
     <div id="coupon-list" role="tabpanel" aria-labelledby={`coupon-tab-${tab}`} className="mt-[22px] flex flex-col gap-[14px]" aria-busy={loading}>
-      {loading ? <p className="py-12 text-center text-[14px] text-white/50">Cargando tus cupones…</p> : error ? <div role="alert" className="py-8 text-center"><p>{error}</p><button type="button" onClick={() => setRetry((n) => n + 1)} className="mt-4 underline">Intentar de nuevo</button></div> : visible.length ? visible.map((coupon) => <CouponCard key={coupon.id} coupon={coupon} />) : <p className="py-12 text-center text-[14px] leading-6 text-white/50">{tab === "available" ? "Aún no tienes cupones disponibles. Aquí aparecerán tus beneficios por participar en eventos." : "Aquí aparecerán tus cupones vencidos o canjeados."}</p>}
+      {loading ? <div className="flex flex-col gap-3 pt-2" role="status" aria-busy="true" aria-label="Cargando tus cupones">{[0, 1, 2].map((i) => <Bone key={i} style={{ height: 120, borderRadius: 20 }} />)}</div> : error ? <div role="alert" className="py-8 text-center"><p>{error}</p><button type="button" onClick={() => setRetry((n) => n + 1)} className="mt-4 underline">Intentar de nuevo</button></div> : visible.length ? visible.map((coupon) => <CouponCard key={coupon.id} coupon={coupon} />) : <p className="py-12 text-center text-[14px] leading-6 text-white/50">{tab === "available" ? "Aún no tienes cupones disponibles. Aquí aparecerán tus beneficios por participar en eventos." : "Aquí aparecerán tus cupones vencidos o canjeados."}</p>}
     </div>
   </section>;
 }

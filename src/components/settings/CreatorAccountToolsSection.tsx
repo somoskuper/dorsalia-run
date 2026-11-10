@@ -16,10 +16,10 @@ export default function CreatorAccountToolsSection() {
     return () => { active = false; };
   }, [user]);
   const links = [
-    { label: "Información de la cuenta", icon: "account-info.svg" },
+    { label: "Información de la cuenta", icon: "account-info.svg", pending: true },
     { label: "Tipo de cuenta", icon: "account-type.svg", href: "/settings/account-type" },
     ...(creator ? [{ label: "Herramientas profesionales", icon: "account-business.svg", href: "/creator" }] : []),
-    { label: "Aplicaciones conectadas", icon: "account-connected.svg" },
+    { label: "Aplicaciones conectadas", icon: "account-connected.svg", pending: true },
   ];
   return <SettingsSection title="Cuentas y herramientas" links={links} />;
 }

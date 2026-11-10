@@ -3,6 +3,7 @@ import { minPrice, organizerLabel, placeLabel } from "@/lib/races";
 
 export type RaceSearchFilters = {
   q: string;
+  sport: string;
   city: string;
   dateFrom: string;
   dateTo: string;
@@ -10,8 +11,18 @@ export type RaceSearchFilters = {
   priceMax: number | null;
 };
 
+export const SEARCH_SPORTS = [
+  { id: "running", label: "Running" },
+  { id: "trail", label: "Trail" },
+  { id: "cycling", label: "Ciclismo" },
+  { id: "triathlon", label: "Triatlón" },
+  { id: "swimming", label: "Natación" },
+  { id: "padel", label: "Pádel" },
+] as const;
+
 export const EMPTY_SEARCH_FILTERS: RaceSearchFilters = {
   q: "",
+  sport: "",
   city: "",
   dateFrom: "",
   dateTo: "",
@@ -62,6 +73,8 @@ export function raceMatchesQuery(r: PublicRace, q: string): boolean {
 
 export function raceMatchesFilters(r: PublicRace, f: RaceSearchFilters): boolean {
   if (!raceMatchesQuery(r, f.q)) return false;
+
+  if (f.sport && norm(String(r.sport_category || "running")) !== norm(f.sport)) return false;
 
   if (f.city) {
     const city = norm(String(r.city || ""));
@@ -122,6 +135,7 @@ export function filtersFromSearchParams(sp: URLSearchParams): RaceSearchFilters 
   const pmax = sp.get("pmax");
   return {
     q: (sp.get("q") || "").trim(),
+    sport: (sp.get("sport") || "").trim(),
     city: (sp.get("city") || "").trim(),
     dateFrom: (sp.get("from") || "").trim(),
     dateTo: (sp.get("to") || "").trim(),
@@ -140,6 +154,7 @@ export function writeFiltersToSearchParams(
     else next.delete(key);
   };
   setOrDel("q", f.q.trim());
+  setOrDel("sport", f.sport.trim());
   setOrDel("city", f.city.trim());
   setOrDel("from", f.dateFrom.trim());
   setOrDel("to", f.dateTo.trim());
@@ -152,6 +167,7 @@ export function writeFiltersToSearchParams(
 
 export function countActiveFilters(f: RaceSearchFilters): number {
   let n = 0;
+  if (f.sport) n += 1;
   if (f.city) n += 1;
   if (f.dateFrom || f.dateTo) n += 1;
   if (f.priceMin != null || f.priceMax != null) n += 1;

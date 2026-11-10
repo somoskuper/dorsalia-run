@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import GlassIconButton from "@/components/account/GlassIconButton";
+import FullScreenMenu from "@/components/FullScreenMenu";
 import PageHeader from "@/components/PageHeader";
 import ProfileIdentity from "@/components/account/ProfileIdentity";
 import ProfileHighlights from "@/components/account/ProfileHighlights";
@@ -15,6 +16,8 @@ import { useAnimatedNavigate } from "@/lib/useAnimatedNavigate";
 import { publicEventPath, usePublicEventPaths } from "@/lib/usePublicEventPaths";
 
 const ICON_LOGOUT = "/assetsdev/Log_Out.svg";
+const ICON_SETTINGS = "/assetsdev/Settings.svg";
+const ICON_MENU = "/branding/Hamburger_MD.svg";
 /** Asset already points left */
 const TIMED_RESULTS_API = `${(process.env.NEXT_PUBLIC_PORTAL_URL || "https://portal.dorsalia.run").replace(/\/$/, "")}/sites/v1/public-athlete-results`;
 type AthletePublicTime = { id: string; distance: string; category: string; bib: string; chip_time: string | null; gun_time: string | null; event?: { name: string; slug: string; public_subdomain?: string | null; event_date?: string | null; cover_image_url?: string | null } | null };
@@ -43,6 +46,8 @@ export type AccountProfileViewProps = {
   publicRatingCount?: number;
   readOnly?: boolean;
   initialTab?: "actividad" | "retos";
+  /** Known from the page load, so the creator button does not wait for a second request. */
+  isPhotographer?: boolean;
 };
 
 export default function AccountProfileView({
@@ -59,11 +64,14 @@ export default function AccountProfileView({
   publicRatingCount,
   readOnly = false,
   initialTab = "actividad",
+  isPhotographer,
 }: AccountProfileViewProps) {
   const { exiting, navigate } = useAnimatedNavigate();
   const [showAllMedals, setShowAllMedals] = useState(initialTab === "retos");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuId = useId();
   const [publicTimes, setPublicTimes] = useState<AthletePublicTime[]>([]);
-  const [photographer, setPhotographer] = useState(false);
+  const [photographer, setPhotographer] = useState(isPhotographer ?? false);
   const eventPaths = usePublicEventPaths();
 
   useEffect(() => {
@@ -74,12 +82,13 @@ export default function AccountProfileView({
   }, [userId]);
 
   useEffect(() => {
+    if (isPhotographer !== undefined) { setPhotographer(isPhotographer); return; }
     if (!userId) { setPhotographer(false); return; }
     let active = true;
     void createClient().from("creator_profiles").select("creator_type,is_active").eq("user_id", userId).maybeSingle()
       .then(({ data }) => { if (active) setPhotographer(data?.creator_type === "photographer" && data.is_active === true); });
     return () => { active = false; };
-  }, [userId]);
+  }, [isPhotographer, userId]);
 
   return (
     <div
@@ -88,21 +97,32 @@ export default function AccountProfileView({
       }`}
     >
       <PageHeader sticky overlayCover gradient={false} onBack={() => navigate("/")} rightAction={!readOnly ? (
-        <GlassIconButton aria-label="Cerrar sesión" title="Salir" onClick={() => onLogout?.()}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={ICON_LOGOUT} alt="" width={24} height={24} />
-        </GlassIconButton>
+        <div className="flex items-center gap-2">
+          <GlassIconButton aria-label="Configuración" title="Configuración" onClick={() => navigate("/settings")}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ICON_SETTINGS} alt="" width={24} height={24} />
+          </GlassIconButton>
+          <GlassIconButton aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"} title="Menú" onClick={() => setMenuOpen((open) => !open)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ICON_MENU} alt="" width={24} height={24} />
+          </GlassIconButton>
+          <GlassIconButton aria-label="Cerrar sesión" title="Salir" onClick={() => onLogout?.()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ICON_LOGOUT} alt="" width={24} height={24} />
+          </GlassIconButton>
+        </div>
       ) : undefined} />
-      <div className="relative mx-auto mt-[50px] max-w-5xl px-5">
+      {!readOnly ? <FullScreenMenu id={menuId} open={menuOpen} onClose={() => setMenuOpen(false)} joinHref="/cuenta" joinLabel="Mi cuenta" /> : null}
+      <div className="relative mx-auto mt-[50px] max-w-5xl px-[15px]">
         <ProfileIdentity displayName={displayName} username={username} avatarUrl={avatarUrl} coverSrc={coverSrc} onAvatarClick={onAvatarClick} readOnly={readOnly} creatorType={photographer ? "photographer" : null} />
-        {userId ? <ProfileHighlights userId={userId} reviews={reviews} readOnly={readOnly} publicRatingCount={publicRatingCount} /> : null}
+        {userId ? <ProfileHighlights userId={userId} reviews={reviews} readOnly={readOnly} publicRatingCount={publicRatingCount} showCreatorPanel={photographer && !readOnly} /> : null}
         {userId && photographer ? <CreatorProfileSections userId={userId} ownProfile={!readOnly} /> : null}
         <ProfileMedalCard medals={featuredMedals || medals} ownProfile={!readOnly} onOpen={() => setShowAllMedals((value) => !value)} />
         {showAllMedals && medals.length > 0 ? <section className="mt-5" aria-label="Todas las medallas"><h2 className="text-[20px] font-semibold text-white">Todas las medallas</h2><div className="mt-3 grid grid-cols-3 gap-3">{medals.map((medal) => <div key={medal.key} className="aspect-square rounded-[20px] bg-[#191919] p-3" title={medal.label}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={medal.imageUrl} alt={medal.label} className="h-full w-full object-contain" style={{ opacity: medal.completed ? 1 : 0.5 }} /></div>)}</div></section> : null}
         {publicTimes.length > 0 ? <section className="mt-6 max-w-2xl" aria-label="Tiempos de corredor"><h2 className="text-sm font-bold uppercase tracking-[0.14em] text-white/55">Mis tiempos</h2><div className="mt-3 space-y-2">{publicTimes.map((item) => <a key={item.id} href={publicEventPath(eventPaths, item.event?.public_subdomain || item.event?.slug)} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 transition hover:border-[#c9f24b]/50">{item.event?.cover_image_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={item.event.cover_image_url} alt="" className="h-12 w-12 rounded-lg object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-lg bg-white/10 text-lg">🏁</span>}<span className="min-w-0 flex-1"><strong className="block truncate text-sm text-white">{item.event?.name || "Evento"}</strong><span className="block truncate text-xs text-white/50">{item.distance || "Carrera"} · {item.category || "General"}{item.bib ? ` · Dorsal ${item.bib}` : ""}</span></span><strong className="shrink-0 text-sm text-[#c9f24b]">{item.chip_time || item.gun_time || "—"}</strong></a>)}</div></section> : null}
         {reviews.length ? <section className="mt-8" aria-label="Carreras calificadas">
           <div className="flex items-center justify-between gap-3"><h2 className="min-w-0 truncate whitespace-nowrap text-xl font-bold text-white">Mis reseñas</h2>{!readOnly ? <a href="/mis-resenas" aria-label="Ver todas mis reseñas" className="grid h-6 w-6 shrink-0 place-items-center">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/profile-highlights/Chevron_Right.svg" alt="" width={16} height={16} /></a> : null}</div>
-          <div className="-mr-5 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="-mr-[15px] mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {reviews.map((review) => <a key={review.id} href={review.event_slug ? `/review/${encodeURIComponent(review.event_slug)}` : publicEventPath(eventPaths, review.event_slug) || "/mis-resenas"} className="w-[150px] shrink-0 snap-start">
               <span className="block h-[150px] w-[150px] overflow-hidden rounded-2xl bg-white/10">{review.event_cover_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={review.event_cover_url} alt="" className="h-full w-full object-cover" /> : null}</span>
               <strong className="mt-2 block truncate text-sm text-white">{review.event_name}</strong><span className="mt-1 flex items-center gap-1 text-sm text-white"><StarIcon filled size={16} />{review.rating.toFixed(1)}</span>

@@ -21,7 +21,7 @@ export default async function ResenasPage() {
   const races = reviewDirectory(await fetchPublicRaces({ status: "all" }));
   return <main className="relative isolate min-h-screen bg-transparent pb-28 text-white">
     <ReviewAmbientBackground />
-    <div className="mx-auto max-w-5xl px-[15px] pt-5"><ReviewPageHeader fallbackHref="/" /></div>
+    <div className="sticky top-0 z-50 mx-auto max-w-5xl px-[15px]"><ReviewPageHeader fallbackHref="/" /></div>
     {races.length ? <>
       <div className="mt-9 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollPaddingInline: "calc((100vw - 340px)/2)", paddingInline: "max(15px, calc((100vw - 340px)/2))" }}>
         {races.slice(0, 6).map((race) => <ReviewGradientLink key={race.id} href={`/review/${encodeURIComponent(billboardSlug(race))}`} imageUrl={coverImage(race)}>

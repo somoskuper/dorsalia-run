@@ -1,3 +1,5 @@
+export const EVENT_PHOTOS_URL = "/fotos";
+
 export const HOME_COLLECTION_URLS = {
   "recent-finished": "/carreras/recien-finalizadas",
   top: "/carreras/mejor-valoradas",

@@ -24,12 +24,13 @@ const SOCIAL = [
 
 const BASE_LINKS = [
   { label: "Calendario", href: "/calendario" },
+  { label: "Fotos de eventos", href: "/fotos" },
   { label: "Crear tu evento", href: PORTAL_URL, external: true },
   { label: "Editor web", href: EDITOR_URL, external: true },
   { label: "Privacidad", href: "/privacidad" },
   { label: "Terminos", href: "/terminos" },
   { label: "Siguenos", href: "#siguenos" },
-  { label: "Ayuda", href: "mailto:hola@dorsalia.run", external: true },
+  { label: "Ayuda", href: "mailto:contacto@dorsalia.run", external: true },
 ] as const;
 
 const ANIM_MS = 380;
@@ -99,7 +100,7 @@ export default function FullScreenMenu({
   const initials = (displayName[0] || "A").toUpperCase();
 
   const links = [
-    { label: "Configuración", href: "/settings" },
+    ...(loggedIn ? [{ label: "Configuración", href: "/settings" }] : []),
     ...BASE_LINKS,
   ];
 

@@ -49,10 +49,51 @@
 .auth-google img { position: absolute; top: -2.42px; left: -1.12px; max-width: none; }
 .auth-link { color: var(--auth-lime); text-decoration: underline; text-underline-offset: 3px; }
 .auth-link:hover { color: white; }
-.auth-stage[data-view='form'] {
-  background-image: linear-gradient(180deg, transparent 0%, #172400 60%), url('/auth-media/intro.webp');
-  background-size: 100% 100%, max(100%, 51dvh) auto;
+.auth-stage[data-view='form'] { background: #172400; }
+.auth-blur {
+  position: absolute;
+  inset: -28px;
+  z-index: 0;
+  background: #172400 url('/auth-media/intro.webp') no-repeat center top / max(100%, 51dvh) auto;
+  filter: blur(22px);
+  transform: scale(1.08);
 }
+.auth-stage[data-view='form'] .auth-canvas { position: relative; z-index: 1; }
+.auth-sheet {
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 28px;
+  background: rgb(7 7 7 / 78%);
+  padding: 28px 20px 22px;
+  backdrop-filter: blur(16px);
+}
+.auth-label { display: block; font-size: 20px; font-weight: 600; line-height: 24px; }
+.auth-input {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 20px;
+  background: #191919;
+  padding: 0 15px;
+  color: #fff;
+  font-size: 16px;
+  outline: none;
+}
+.auth-input::placeholder { color: rgb(255 255 255 / 50%); }
+.auth-input:focus-visible { outline: 2px solid #C5E500; }
+.auth-fields { display: flex; flex-direction: column; gap: 30px; margin-top: 30px; }
+.auth-submit {
+  height: 52px;
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  background: #C5E500;
+  color: #070707;
+  font-size: 16px;
+  font-weight: 700;
+}
+.auth-submit:disabled { opacity: 0.45; }
 .auth-stage[data-view='form'] .auth-actions {
   width: min(calc(100% - 40px), 370px);
   justify-content: center;
@@ -90,7 +131,7 @@
   .auth-brand { padding: 0 24px; }
   .auth-actions, .auth-stage[data-view='form'] .auth-actions { flex: 0 0 auto; padding-block: 24px 0; }
   .auth-stage[data-view='login'] .auth-actions { padding-bottom: 0; }
-  .auth-stage[data-view='form'] section { background: #111; }
+  .auth-stage[data-view='form'] .auth-sheet { background: rgb(7 7 7 / 82%); }
   .auth-login-field { background: #151515; }
   .auth-signin.ds-btn { --btn-tertiary-bg: #fff; --btn-tertiary-fg: #070707; }
 }

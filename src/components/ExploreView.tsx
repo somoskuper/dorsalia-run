@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
-import ActivityFeed from "@/components/activity/ActivityFeed";
+import { FollowingFeed } from "@/components/activity/SuggestedPeople";
+import EventPhotoRail from "@/components/activity/EventPhotoRail";
 import SocialNotifications, { type SocialNotification } from "@/components/activity/SocialNotifications";
 import OrganizerVerificationBadge from "@/components/OrganizerVerificationBadge";
 import { createClient } from "@/lib/supabase/client";
 import { useMarketplaceSearch } from "@/components/MarketplaceSearchProvider";
-import SearchFiltersSheet from "@/components/SearchFiltersSheet";
+import EventSearchBar from "@/components/search/EventSearchBar";
 import AssetIcon from "@/components/ui/AssetIcon";
 import { useSavedRaces } from "@/components/SavedRacesProvider";
 import { HOME_COLLECTION_URLS, type HomeCollectionId } from "@/lib/homeCollectionUrls";
@@ -39,8 +41,6 @@ import {
   countActiveFilters,
   filterRaces,
   filtersFromSearchParams,
-  priceBounds,
-  uniqueCities,
   writeFiltersToSearchParams,
 } from "@/lib/raceSearch";
 import {
@@ -52,6 +52,7 @@ import {
   DESK_SEARCH_PY,
   DESK_SEARCH_RADIUS,
 } from "@/lib/appChrome";
+import { Bone, PostSkeleton } from "@/components/ui/Skeleton";
 
 const ICON_FILTERS = "/branding/filtros-icon.svg";
 /** Temporarily hide divider + filters icon in the search bar. */
@@ -76,6 +77,7 @@ export type SeoHubContent = {
   filterTabs?: Array<{ id: HubFilter; label: string }>;
   preserveOrder?: boolean;
   footerHeading?: string;
+  countLabel?: string;
 };
 
 const FILTER_TABS: { id: FilterTab; label: string; icon: "eventos" | "feed" | "user-actividad-tab" }[] = [
@@ -92,7 +94,7 @@ const HUB_FILTERS: { id: HubFilter; label: string }[] = [
   { id: "all", label: "Todos" },
 ];
 
-function SeoHubHero({ content }: { content: SeoHubContent }) {
+export function SeoHubHero({ content }: { content: SeoHubContent }) {
   return (
     <section className="relative mb-[30px] min-h-[360px] overflow-hidden rounded-[28px] border border-white/10 bg-[#050505] px-6 py-7 md:min-h-[300px] md:px-12 md:py-10">
       <div className="absolute -right-20 -top-32 h-[420px] w-[420px] rounded-full bg-[#c9f24b]/20 blur-[90px]" aria-hidden />
@@ -110,7 +112,7 @@ function SeoHubHero({ content }: { content: SeoHubContent }) {
           <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#c9f24b]">{content.eyebrow}</p>
           <h1 className="mt-3 max-w-4xl text-balance text-[clamp(2.25rem,7vw,5.25rem)] font-black leading-[0.95] tracking-[-0.04em] text-white">{content.title}</h1>
           <p className="mt-5 max-w-3xl text-pretty text-base leading-7 text-white/62 md:text-lg">{content.description}</p>
-          <p className="mt-5 text-sm font-extrabold text-[#c9f24b]">{content.eventCount} evento{content.eventCount === 1 ? "" : "s"} disponible{content.eventCount === 1 ? "" : "s"}</p>
+          <p className="mt-5 text-sm font-extrabold text-[#c9f24b]">{content.countLabel || `${content.eventCount} evento${content.eventCount === 1 ? "" : "s"} disponible${content.eventCount === 1 ? "" : "s"}`}</p>
         </div>
       </div>
     </section>
@@ -443,7 +445,7 @@ function EventCard({
         <div className="mp-card-poster">
           {img ? (
             <>
-              {!imageLoaded ? <div className="absolute inset-0 z-[2] grid place-items-center" role="status" aria-label="Cargando portada"><span className="h-9 w-9 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" /></div> : null}
+              {!imageLoaded ? <Bone className="absolute inset-0 z-[2] rounded-none" /> : null}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 ref={imageRef}
@@ -453,7 +455,7 @@ function EventCard({
                 decoding="async"
                 fetchPriority={index === 0 ? "high" : "auto"}
                 onLoad={() => setImageLoaded(true)}
-                className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:group-hover:scale-[1.05] ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
               />
             </>
           ) : (
@@ -536,7 +538,7 @@ function currentMondayRange() {
   return { start, end: start + 7 * 86_400_000 };
 }
 
-function HomeEventSections({ races, residence, onOpen }: { races: PublicRace[]; residence: string; onOpen: (race: PublicRace) => void }) {
+function HomeEventSections({ races, residence, onOpen, photoRail }: { races: PublicRace[]; residence: string; onOpen: (race: PublicRace) => void; photoRail?: React.ReactNode }) {
   const best = useMemo(() => topRatedRaces(races), [races]);
   const recentlyFinished = useMemo(() => {
     const now = Date.now();
@@ -572,7 +574,7 @@ function HomeEventSections({ races, residence, onOpen }: { races: PublicRace[]; 
     { id: "new", title: "Nuevos eventos", items: newest },
     { id: "finished", title: "Finalizados", items: finalized },
   ];
-  return <div className="flex flex-col gap-[60px]">{sections.filter((section) => section.items.length).map((section) => <section key={section.id} aria-labelledby={`home-${section.id}`}><div className="mb-5 flex items-center justify-between gap-2 md:mb-6"><h2 id={`home-${section.id}`} className="min-w-0 text-2xl font-black tracking-[-0.02em] text-white md:text-3xl">{section.title}</h2><a href={HOME_COLLECTION_URLS[section.id]} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white transition hover:text-[#c9f24b] md:hidden" aria-label={`Ver más: ${section.title}`}><AssetIcon name="arrow-circle-right" size={28} /></a><div className="hidden md:block"><Button variant="secondary" href={HOME_COLLECTION_URLS[section.id]} className="shrink-0 whitespace-nowrap text-xs sm:text-sm" aria-label={`Ver más: ${section.title}`}>Ver más</Button></div></div><ProgressiveEventGrid races={section.items} onOpen={onOpen} /></section>)}</div>;
+  return <div className="flex flex-col gap-[60px]">{sections.filter((section) => section.items.length).map((section) => <div key={section.id} className="flex flex-col gap-[60px]"><section aria-labelledby={`home-${section.id}`}><div className="mb-5 flex items-center justify-between gap-2 md:mb-6"><h2 id={`home-${section.id}`} className="min-w-0 text-2xl font-black tracking-[-0.02em] text-white md:text-3xl">{section.title}</h2><a href={HOME_COLLECTION_URLS[section.id]} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white transition hover:text-[#c9f24b] md:hidden" aria-label={`Ver más: ${section.title}`}><AssetIcon name="arrow-circle-right" size={28} /></a><div className="hidden md:block"><Button variant="secondary" href={HOME_COLLECTION_URLS[section.id]} className="shrink-0 whitespace-nowrap text-xs sm:text-sm" aria-label={`Ver más: ${section.title}`}>Ver más</Button></div></div><ProgressiveEventGrid races={section.items} onOpen={onOpen} /></section>{section.id === "top" ? <div className="contents">{photoRail ?? <EventPhotoRail className="" />}</div> : null}</div>)}</div>;
 }
 
 function HomeDirectoryLinks({ races }: { races: PublicRace[] }) {
@@ -610,9 +612,19 @@ function CompactEventCard({ race, onOpen }: { race: PublicRace; onOpen: (race: P
   const image = cardCoverImage(race);
   const [loaded, setLoaded] = useState(!image);
   return <a href={marketplaceEventUrl(race)} onClick={(event) => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); onOpen(race); }} className="flex w-full items-center gap-3 rounded-2xl p-2 text-left transition-colors hover:bg-white/[0.06]">
-    <span className="relative h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white/[0.05]">{image ? <>{!loaded ? <span className="absolute inset-0 grid place-items-center"><span className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" /></span> : null}{/* eslint-disable-next-line @next/next/no-img-element */}<img src={image} alt="" onLoad={() => setLoaded(true)} className={`h-full w-full object-cover ${loaded ? "opacity-100" : "opacity-0"}`} /></> : null}</span>
+    <span className="relative h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white/[0.05]">{image ? <>{!loaded ? <Bone className="absolute inset-0 rounded-none" /> : null}{/* eslint-disable-next-line @next/next/no-img-element */}<img src={image} alt="" onLoad={() => setLoaded(true)} className={`h-full w-full object-cover ${loaded ? "opacity-100" : "opacity-0"}`} /></> : null}</span>
     <span className="min-w-0"><strong className="line-clamp-2 text-sm text-white">{race.name}</strong><span className="mt-1 block truncate text-xs text-white/45">{formatDateTime(race.event_date).date}</span></span>
   </a>;
+}
+
+function GuestFeedPrompt() {
+  return (
+    <div className="px-[15px] py-16 text-center">
+      <p className="text-[22px] font-semibold leading-7 text-white">Crea una cuenta para interactuar</p>
+      <p className="mt-2 text-[16px] text-white/60">Es gratis.</p>
+      <Link href="/auth" className="mt-6 inline-flex h-[52px] items-center rounded-full bg-[#C5E500] px-6 text-[16px] font-bold" style={{ color: "#070707" }}>Crear cuenta</Link>
+    </div>
+  );
 }
 
 export default function ExploreView({
@@ -621,6 +633,8 @@ export default function ExploreView({
   q = "",
   seoHub,
   mobileSport,
+  photoRail,
+  desktopPhotoRail,
 }: {
   races: PublicRace[];
   adCards?: AdCard[];
@@ -629,18 +643,19 @@ export default function ExploreView({
   counts?: { all: number; active: number; inactive: number };
   seoHub?: SeoHubContent;
   mobileSport?: string;
+  photoRail?: React.ReactNode;
+  desktopPhotoRail?: React.ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const viewParam = searchParams.get("vista");
-  const { filtersOpen, closeFilters } = useMarketplaceSearch();
   const [filter, setFilter] = useState<FilterTab>(() => viewParam === "feed" ? "para_ti" : viewParam === "actividad" ? "actividad" : "eventos");
   useEffect(() => {
     if (pathname === "/" && viewParam) setFilter(viewParam === "feed" ? "para_ti" : viewParam === "actividad" ? "actividad" : "eventos");
   }, [pathname, viewParam]);
   const [hubFilter, setHubFilter] = useState<HubFilter>(seoHub?.initialFilter || "upcoming");
-  const { user: notificationUser } = useAthleteAuth();
+  const { user: notificationUser, loading: authLoading } = useAthleteAuth();
   const [residence, setResidence] = useState("");
   const [notifications, setNotifications] = useState<SocialNotification[]>([]);
   const [notificationCount, setNotificationCount] = useState(0);
@@ -704,8 +719,6 @@ export default function ExploreView({
     () => filtersFromSearchParams(new URLSearchParams(searchParams.toString())),
     [searchParams],
   );
-  const cities = useMemo(() => uniqueCities(races), [races]);
-  const bounds = useMemo(() => priceBounds(races), [races]);
   const filtered = useMemo(
     () => filterRaces(races, searchFilters),
     [races, searchFilters],
@@ -731,6 +744,15 @@ export default function ExploreView({
   const showMobileFeed = !seoHub && !hasSearch && filter === "para_ti";
   const showMobileActivity = !seoHub && !hasSearch && filter === "actividad";
   const hideLegacyOnMobile = showMobileHome || showMobileFeed || showMobileActivity;
+  const showMobileSearch = filter === "eventos" && (!seoHub || Boolean(mobileSport));
+  const showSectionSearch = Boolean(seoHub) || filter === "eventos" || filter === "para_ti" || hasSearch;
+  const sectionSearchClass = seoHub && !mobileSport
+    ? "mb-5 md:max-w-[560px]"
+    : filter === "para_ti" && !hasSearch
+      ? "mb-5 hidden lg:block lg:max-w-[560px]"
+      : hasSearch && filter !== "eventos" && !seoHub
+        ? "mb-5 lg:max-w-[560px]"
+        : "mb-5 hidden lg:block lg:max-w-[560px]";
 
   function openRace(race: PublicRace) {
     router.push(marketplaceEventUrl(race));
@@ -738,20 +760,14 @@ export default function ExploreView({
 
   return (
     <>
-    <SearchFiltersSheet
-      open={filtersOpen}
-      onClose={closeFilters}
-      cities={cities}
-      boundMin={bounds.min}
-      boundMax={bounds.max}
-    />
-    {showMobileHome ? <div className="lg:hidden"><MobileHome races={ordered} residence={residence} selectedSport={mobileSport || "running"} /></div> : null}
-    {showMobileFeed ? <section className="min-h-screen bg-[#070707] pb-24 pt-5 lg:hidden"><h1 className="px-[15px] pb-4 text-[24px] font-normal text-white">Feed</h1><ActivityFeed refreshKey={activityRefresh} emptyText="Aquí aparecerá la actividad de las personas." /></section> : null}
+    {showMobileSearch ? <div className={`px-[17px] pt-4 lg:hidden ${showMobileHome ? "bg-[#0e0e0e]" : "bg-[#070707]"}`}><EventSearchBar races={races} /></div> : null}
+    {showMobileHome ? <div className="lg:hidden"><MobileHome races={ordered} residence={residence} selectedSport={mobileSport || "running"} photoRail={photoRail} /></div> : null}
+    {showMobileFeed ? <section className="min-h-screen bg-[#070707] pb-24 lg:hidden">{!authLoading && notificationUser ? <div className="px-[17px] pt-4"><EventSearchBar races={races} /></div> : null}<h1 className="px-[15px] pb-4 pt-5 text-[24px] font-normal text-white">Feed</h1>{authLoading ? <PostSkeleton count={2} /> : notificationUser ? <FollowingFeed userId={notificationUser.id} refreshKey={activityRefresh} /> : <GuestFeedPrompt />}</section> : null}
     {showMobileActivity ? <section className="min-h-screen bg-[#070707] pb-24 pt-5 lg:hidden"><h1 className="px-[15px] pb-4 text-[24px] font-normal text-white">Actividad</h1><SocialNotifications items={notifications} loading={notificationLoading} error={notificationError} signedIn={Boolean(notificationUser)} /></section> : null}
     <div className={`relative min-h-screen bg-[#070707] mp-page-enter ${hideLegacyOnMobile ? "hidden lg:block" : ""}`}>
-      <section className="relative z-10 px-5 pb-16 pt-[30px]">
+      <section className={`relative z-10 px-5 pb-16 ${hasSearch && !seoHub ? "pt-5" : "pt-[30px]"}`}>
 
-        {seoHub ? <SeoHubHero content={seoHub} /> : heroAd ? (
+        {seoHub ? <SeoHubHero content={seoHub} /> : hasSearch ? null : heroAd ? (
           <div className="mb-[30px] md:mb-10"><HomeCardRail advertisements>{[heroAd, ...companionAds].map((ad) => <div key={ad.id} data-marketplace-ad-slide className="w-[calc(100vw-2.5rem)] max-w-[420px] shrink-0 snap-center lg:w-[calc((100%_-_1.25rem)/2)] lg:max-w-none lg:snap-start"><MarketplaceAdCard ad={ad} variant={ad.slug === "dorsalia" ? "hero" : "card"} /></div>)}</HomeCardRail></div>
         ) : (
           <div className="mb-[30px] flex flex-col gap-[30px] md:mb-10 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] md:items-center md:gap-10 xl:gap-16">
@@ -783,22 +799,24 @@ export default function ExploreView({
           </div>
         )}
 
-        {!seoHub && !heroAd && companionAds.length ? <div className="mb-[30px] md:mb-10"><HomeCardRail advertisements>{companionAds.map((ad) => <div key={ad.id} data-marketplace-ad-slide className="w-[calc(100vw-2.5rem)] max-w-[420px] shrink-0 snap-center lg:w-[calc((100%_-_1.25rem)/2)] lg:max-w-none lg:snap-start"><MarketplaceAdCard ad={ad} /></div>)}</HomeCardRail></div> : null}
+        {!seoHub && !hasSearch && !heroAd && companionAds.length ? <div className="mb-[30px] md:mb-10"><HomeCardRail advertisements>{companionAds.map((ad) => <div key={ad.id} data-marketplace-ad-slide className="w-[calc(100vw-2.5rem)] max-w-[420px] shrink-0 snap-center lg:w-[calc((100%_-_1.25rem)/2)] lg:max-w-none lg:snap-start"><MarketplaceAdCard ad={ad} /></div>)}</HomeCardRail></div> : null}
 
-        <div className={seoHub ? "mb-[30px] md:mb-10" : "sticky top-[65px] z-30 -mx-5 mb-[30px] bg-[#070707] px-5 py-2 md:top-[63px] md:mb-10"}>
+        {showSectionSearch ? <div className={sectionSearchClass}><EventSearchBar races={races} /></div> : null}
+
+        <div className={seoHub ? "mb-[30px] md:mb-10" : `sticky top-[65px] z-30 -mx-5 mb-[30px] bg-[#070707] px-5 py-2 md:top-[63px] md:mb-10 ${hasSearch ? "hidden lg:block" : ""}`}>
           {seoHub ? <HubFilterButtons active={hubFilter} onChange={setHubFilter} tabs={seoHub.filterTabs} /> : <FilterButtons active={filter} onChange={setFilter} unreadCount={notificationCount} />}
         </div>
 
         {!seoHub && filter === "actividad" ? (
           <div className="w-[calc(100%+2.5rem)] -translate-x-5 md:mx-auto md:w-full md:max-w-2xl md:translate-x-0"><SocialNotifications items={notifications} loading={notificationLoading} error={notificationError} signedIn={Boolean(notificationUser)} /></div>
-        ) : !seoHub && filter === "para_ti" ? (
-          <div className="w-[calc(100%+2.5rem)] -translate-x-5 md:mx-auto md:w-full md:max-w-2xl md:translate-x-0"><ActivityFeed refreshKey={activityRefresh} emptyText="Aquí aparecerá la actividad de las personas." /></div>
         ) : hasSearch ? (
           <div className="mx-auto max-w-2xl">
             <UserSearchResults query={searchFilters.q || ""} />
             <h2 className="mb-3 text-sm font-semibold text-white/50">Eventos</h2>
             {ordered.length ? <div className="space-y-1">{ordered.map((race) => <CompactEventCard key={race.id} race={race} onOpen={openRace} />)}</div> : <p className="px-3 py-8 text-sm text-white/40">No encontramos eventos con esa búsqueda.</p>}
           </div>
+        ) : !seoHub && filter === "para_ti" ? (
+          <div className="w-[calc(100%+2.5rem)] -translate-x-5 md:mx-auto md:w-full md:max-w-2xl md:translate-x-0">{authLoading ? <PostSkeleton count={2} /> : notificationUser ? <FollowingFeed userId={notificationUser.id} refreshKey={activityRefresh} /> : <GuestFeedPrompt />}</div>
         ) : ordered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/15 px-6 py-16 text-center">
             <p className="font-akira text-lg">
@@ -813,7 +831,7 @@ export default function ExploreView({
         ) : seoHub ? (
           <ProgressiveEventGrid races={ordered} onOpen={openRace} />
         ) : (
-          <HomeEventSections races={ordered} residence={residence} onOpen={openRace} />
+          <HomeEventSections races={ordered} residence={residence} onOpen={openRace} photoRail={desktopPhotoRail} />
         )}
 
         {seoHub ? (

@@ -478,10 +478,10 @@ a {
   }
 }
 
-/* Event card poster — always 4:5, 28px radius */
+/* Event cards outside the ficha stay 1:1. The event page uses the organizer image height. */
 .mp-card-poster {
   position: relative;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
   border-radius: 28px;
   background: #141414;

@@ -42,6 +42,7 @@ export default function DesktopNavigation() {
     </Link>
     <nav className="ml-2 flex shrink-0 items-center gap-1" aria-label="Secciones">
       <Link href="/calendario" className={`rounded-lg px-2 py-2 text-[16px] font-semibold hover:text-white ${pathname.startsWith("/calendario") ? "text-[#c9f24b]" : "text-white/75"}`}>Calendario</Link>
+      <Link href="/fotos" className={`rounded-lg px-2 py-2 text-[16px] font-semibold hover:text-white ${pathname.startsWith("/fotos") ? "text-[#c9f24b]" : "text-white/75"}`}>Fotos</Link>
       <NavGroup label="Explorar" wide><div className="grid grid-cols-3 gap-3">
         <div><p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-white/40">Ubicación</p>
           {[["campeche","Campeche"],["quintana-roo","Quintana Roo"],["yucatan","Yucatán"],["tamaulipas","Tamaulipas"],["coahuila","Coahuila"],["guanajuato","Guanajuato"]].map(([slug,label])=><Link key={slug} href={`/carreras/${slug}`} className={linkClass}>{label}</Link>)}
@@ -53,7 +54,7 @@ export default function DesktopNavigation() {
         </div>
       </div></NavGroup>
       <NavGroup label="Organizar"><a href={PORTAL_URL} className={linkClass}>Crear tu evento</a><a href={EDITOR_URL} className={linkClass}>Editor web</a></NavGroup>
-      <NavGroup label="Más"><a href="/#siguenos" className={linkClass}>Síguenos</a><a href="mailto:hola@dorsalia.run" className={linkClass}>Ayuda</a><Link href="/privacidad" className={linkClass}>Privacidad</Link><Link href="/terminos" className={linkClass}>Términos</Link></NavGroup>
+      <NavGroup label="Más"><a href="/#siguenos" className={linkClass}>Síguenos</a><a href="mailto:contacto@dorsalia.run" className={linkClass}>Ayuda</a><Link href="/privacidad" className={linkClass}>Privacidad</Link><Link href="/terminos" className={linkClass}>Términos</Link></NavGroup>
     </nav>
     <Link href="/buscar" className="ml-auto flex h-10 min-w-[150px] max-w-[250px] flex-1 items-center gap-2 rounded-2xl border border-white/15 bg-white/[.06] px-3 text-white/45 hover:border-white/30" aria-label="Buscar eventos o usuarios"><AssetIcon name="search" size={20} /><span className="truncate text-[16px]">Buscar eventos…</span></Link>
     <NavGroup label={signedIn ? "Mi perfil" : "Entrar"} align="right">

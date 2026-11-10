@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
 import PhoneCountryInput from "@/components/PhoneCountryInput";
@@ -16,6 +16,8 @@ import {
 import { navigateAfterAuth, resolvePostAuthNext } from "@/lib/safeAuthNext";
 import { normalizeUsername, usernameError } from "@/lib/usernames";
 import { highResolutionAvatar } from "@/lib/avatarImage";
+import { SettingsFieldsSkeleton } from "@/components/ui/Skeleton";
+import SuggestedPeople from "@/components/activity/SuggestedPeople";
 
 type UsernameState = "idle" | "checking" | "available" | "taken" | "invalid";
 
@@ -37,9 +39,11 @@ export function OnboardingForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const suggestingRef = useRef(false);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || suggestingRef.current) return;
     if (!user) {
       router.replace(`/auth?${reviewIntent ? "mode=register&intent=review&" : ""}next=${encodeURIComponent(next)}`);
       return;
@@ -151,7 +155,17 @@ export function OnboardingForm() {
       setError(profileError.message);
       return;
     }
+    setSaving(false);
+    suggestingRef.current = true;
+    setSuggesting(true);
+  }
 
+  async function finish() {
+    if (!user) return;
+    setError(null);
+    setSaving(true);
+    const supabase = createClient();
+    const normalizedUsername = normalizeUsername(username);
     const { error: metaError } = await supabase.auth.updateUser({
       data: {
         athlete_onboarding_done: true,
@@ -170,6 +184,15 @@ export function OnboardingForm() {
     }
     await refresh();
     navigateAfterAuth(next, (href) => router.replace(href));
+  }
+
+  if (suggesting && user) {
+    return (
+      <div className="mx-auto w-full max-w-2xl">
+        <SuggestedPeople viewerId={user.id} onDone={() => void finish()} />
+        {error ? <p className="mt-3 px-[15px] text-sm text-[#DE5757]">{error}</p> : null}
+      </div>
+    );
   }
 
   if (loading || !ready) {
@@ -311,7 +334,7 @@ const inputClass =
 export default function OnboardingPage() {
   return (
     <div className="min-h-[80vh] px-5 py-16 md:py-24">
-      <Suspense fallback={<div className="text-white/50 text-center">Cargando…</div>}>
+      <Suspense fallback={<SettingsFieldsSkeleton count={3} />}>
         <OnboardingForm />
       </Suspense>
     </div>

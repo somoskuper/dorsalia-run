@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import RelativeTime from "@/components/activity/RelativeTime";
+import { ListRowsSkeleton } from "@/components/ui/Skeleton";
 
 export type SocialNotification = {
   id: string;
@@ -18,7 +19,7 @@ export type SocialNotification = {
 
 export default function SocialNotifications({ items, loading, error, signedIn }: { items: SocialNotification[]; loading: boolean; error: boolean; signedIn: boolean }) {
   if (!signedIn) return <div className="mx-auto max-w-2xl px-5 py-12 text-center text-white/55">Inicia sesión para ver tu actividad. <Link href="/auth?next=%2F" className="text-[#c9f24b]">Iniciar sesión</Link></div>;
-  if (loading) return <div className="grid min-h-40 place-items-center"><span className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" aria-label="Cargando notificaciones" /></div>;
+  if (loading) return <ListRowsSkeleton count={6} label="Cargando notificaciones" />;
   if (error) return <p className="px-5 py-12 text-center text-sm text-white/50">No pudimos cargar tus notificaciones.</p>;
   if (!items.length) return <p className="px-5 py-12 text-center text-sm text-white/45">Aquí aparecerán nuevos seguidores y los Me gusta que recibas.</p>;
 

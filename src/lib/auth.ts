@@ -58,6 +58,17 @@ export async function signInWithGoogle(redirectPath = "/cuenta", intent?: string
   });
 }
 
+export async function linkGoogleAccount() {
+  const supabase = createClient();
+  return supabase.auth.linkIdentity({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/settings/seguridad")}`,
+      queryParams: { prompt: "select_account" },
+    },
+  });
+}
+
 export async function signOut() {
   const supabase = createClient();
   return supabase.auth.signOut();

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
 import { createClient } from "@/lib/supabase/client";
+import { askForAccount } from "@/components/account/AccountPrompt";
 import AssetIcon from "@/components/ui/AssetIcon";
 
 export default function PostReactions({ postId, initialLikes = 0, initialLiked = false }: {
@@ -19,7 +20,7 @@ export default function PostReactions({ postId, initialLikes = 0, initialLiked =
 
   async function toggleLike() {
     if (!postId) return;
-    if (!user) { window.location.href = `/auth?next=${encodeURIComponent(location.pathname + location.search)}`; return; }
+    if (!user) { askForAccount("dar me gusta"); return; }
     if (busy) return;
     const wasActive = liked;
     setLiked(!wasActive);

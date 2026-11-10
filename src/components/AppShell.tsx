@@ -7,6 +7,8 @@ import MarketplaceNavbar from "@/components/MarketplaceNavbar";
 import SiteFooter from "@/components/SiteFooter";
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
 import ActivityComposer from "@/components/activity/ActivityComposer";
+import CommentSheetHost from "@/components/activity/CommentSheetHost";
+import AccountPrompt from "@/components/account/AccountPrompt";
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const { user, loading } = useAthleteAuth();
@@ -24,6 +26,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const isCouponDetail = /^\/(?:cuenta|miscompras)\/cupones\/[^/]+/.test(pathname);
   const isSettings = pathname === "/settings" || pathname.startsWith("/settings/");
   const isCreatorSurface = pathname === "/creator" || pathname.startsWith("/creator/") || pathname.startsWith("/fotos/");
+  const isPost = pathname.startsWith("/post/");
   const isLanding = pathname.startsWith("/iniciar");
   const isSearch = pathname.startsWith("/buscar");
   const isFollowers = pathname.startsWith("/seguidores/");
@@ -31,17 +34,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {!isLanding && !isPublicProfile && !isSearch && !isFollowers && !isCouponDetail && !isSettings && !isCreatorSurface ? (
+      {!isLanding && !isPublicProfile && !isSearch && !isFollowers && !isCouponDetail && !isSettings && !isCreatorSurface && !isPost ? (
         <Suspense fallback={null}>
           <AppNav />
         </Suspense>
       ) : null}
-      {!isSettings && !isPublicProfile && !isCreatorSurface ? <Suspense fallback={isAccount ? null : <div className="h-[65px] bg-[#070707] lg:h-[63px]" />}>
+      {!isSettings && !isPublicProfile && !isCreatorSurface && !isPost ? <Suspense fallback={isAccount ? null : <div className="h-[65px] bg-[#070707] lg:h-[63px]" />}>
         <MarketplaceNavbar />
       </Suspense> : null}
       <div
         className={
-          isCouponDetail || isSettings || isCreatorSurface
+          isCouponDetail || isSettings || isCreatorSurface || isPost
             ? undefined
             :
           isLanding
@@ -58,9 +61,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
         }
       >
         <main>{children}</main>
-        {!isAccount && !isLanding && !isPublicProfile && !isSearch && !isFollowers && !isSettings && !isCreatorSurface ? <SiteFooter glass={pathname === "/review"} /> : null}
+        {!isAccount && !isLanding && !isPublicProfile && !isSearch && !isFollowers && !isSettings && !isCreatorSurface && !isPost ? <SiteFooter glass={pathname === "/review"} /> : null}
       </div>
       <ActivityComposer />
+      <CommentSheetHost />
+      <AccountPrompt />
     </>
   );
 }

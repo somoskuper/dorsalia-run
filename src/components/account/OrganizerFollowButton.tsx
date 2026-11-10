@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
+import { askForAccount } from "@/components/account/AccountPrompt";
 import { createClient } from "@/lib/supabase/client";
 
 export default function OrganizerFollowButton({workspaceId, slug}: {workspaceId:string; slug:string}) {
@@ -14,7 +15,7 @@ export default function OrganizerFollowButton({workspaceId, slug}: {workspaceId:
     return ()=>{active=false;};
   },[workspaceId,user?.id]);
   async function toggle(){
-    if(!user){window.location.assign(`/auth?next=${encodeURIComponent(`/org/${slug}`)}`);return;}
+    if(!user){askForAccount("seguir a este organizador", `/org/${slug}`);return;}
     setBusy(true);setError("");
     try {
       const {data,error}=await createClient().rpc("toggle_organizer_follow",{p_workspace_id:workspaceId});

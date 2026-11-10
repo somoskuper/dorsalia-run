@@ -7,6 +7,7 @@ import type { PublicRace } from "@/lib/races";
 import { cardCoverImage, formatDateTime, marketplaceEventPath, organizerSlugFrom, placeLabel } from "@/lib/races";
 import { createClient } from "@/lib/supabase/client";
 import AssetIcon from "@/components/ui/AssetIcon";
+import { Bone } from "@/components/ui/Skeleton";
 
 type Person = { user_id: string; username: string; display_name: string; avatar_url?: string | null; bio?: string | null };
 
@@ -63,5 +64,5 @@ export default function SearchPageView({ races }: { races: PublicRace[] }) {
 
 function EventThumb({ src }: { src?: string | null }) {
   const [loaded, setLoaded] = useState(!src);
-  return <span className="relative h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white/[0.05]">{src ? <>{!loaded ? <span className="absolute inset-0 grid place-items-center"><span className="h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-[#c9f24b]" /></span> : null}{/* eslint-disable-next-line @next/next/no-img-element */}<img src={src} alt="" loading="lazy" onLoad={() => setLoaded(true)} className={`h-full w-full object-cover ${loaded ? "opacity-100" : "opacity-0"}`} /></> : null}</span>;
+  return <span className="relative h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white/[0.05]">{src ? <>{!loaded ? <Bone className="absolute inset-0 rounded-none" /> : null}{/* eslint-disable-next-line @next/next/no-img-element */}<img src={src} alt="" loading="lazy" onLoad={() => setLoaded(true)} className={`h-full w-full object-cover ${loaded ? "opacity-100" : "opacity-0"}`} /></> : null}</span>;
 }

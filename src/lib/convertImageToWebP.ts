@@ -34,8 +34,8 @@ async function loadImageBitmap(file: File): Promise<ImageBitmap> {
 }
 
 /** Resize + encode any image File to WebP in the browser. */
-export async function convertImageToWebP(file: File, baseName = "image", options: { square?: boolean; quality?: number } = {}): Promise<File> {
-  if (!options.square && file.type === "image/webp" && file.size < 700_000) {
+export async function convertImageToWebP(file: File, baseName = "image", options: { square?: boolean; quality?: number; maxSize?: number } = {}): Promise<File> {
+  if (!options.square && !options.maxSize && file.type === "image/webp" && file.size < 700_000) {
     return file;
   }
 
@@ -43,9 +43,10 @@ export async function convertImageToWebP(file: File, baseName = "image", options
   const sourceSize = Math.min(bitmap.width, bitmap.height);
   const sourceX = options.square ? Math.round((bitmap.width - sourceSize) / 2) : 0;
   const sourceY = options.square ? Math.round((bitmap.height - sourceSize) / 2) : 0;
-  const scale = Math.min(1, IMAGE_MAX_SIZE / Math.max(bitmap.width, bitmap.height));
-  const width = options.square ? IMAGE_MAX_SIZE : Math.max(1, Math.round(bitmap.width * scale));
-  const height = options.square ? IMAGE_MAX_SIZE : Math.max(1, Math.round(bitmap.height * scale));
+  const limit = options.maxSize ?? IMAGE_MAX_SIZE;
+  const scale = Math.min(1, limit / Math.max(bitmap.width, bitmap.height));
+  const width = options.square ? limit : Math.max(1, Math.round(bitmap.width * scale));
+  const height = options.square ? limit : Math.max(1, Math.round(bitmap.height * scale));
 
   const canvas = document.createElement("canvas");
   canvas.width = width;

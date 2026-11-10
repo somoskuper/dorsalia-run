@@ -7,6 +7,7 @@ import { useAthleteAuth } from "@/components/AthleteAuthProvider";
 import { convertImageToWebP } from "@/lib/convertImageToWebP";
 import { PROFILE_COVER_PRESETS, resolveProfileCover } from "@/lib/profileCovers";
 import { createClient } from "@/lib/supabase/client";
+import { PhotoGridSkeleton } from "@/components/ui/Skeleton";
 
 type MediaKind = "cover" | "avatar";
 
@@ -110,7 +111,7 @@ export default function ProfileMediaEditor({ kind }: { kind: MediaKind }) {
             {kind === "cover" ? "Subir portada" : "Subir foto de perfil"}
             <input type="file" accept="image/*,.heic,.heif" className="sr-only" onChange={(event) => { chooseFile(event.target.files?.[0]); event.target.value = ""; }} />
           </label>
-        </div> : <p className="mt-5 text-[14px] text-white/50">Cargando imágenes…</p>}
+        </div> : <div className="mt-5"><PhotoGridSkeleton count={6} columns={3} /></div>}
         {error ? <p role="alert" className="mt-4 text-[14px] text-[#DE5757]">{error}</p> : null}
       </form>
     </main>

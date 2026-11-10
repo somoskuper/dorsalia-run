@@ -8,6 +8,7 @@ import { useEventPalette } from "@/lib/useEventPalette";
 import ReviewPageHeader from "@/components/reviews/ReviewPageHeader";
 import GlassPanel from "@/components/ui/GlassPanel";
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
+import { askForAccount } from "@/components/account/AccountPrompt";
 import { createClient } from "@/lib/supabase/client";
 import CreatorEventPhotosLink from "@/components/creator/CreatorEventPhotosLink";
 
@@ -27,7 +28,7 @@ export default function ReviewDetail({ race }: { race: PublicRace }) {
   }, [race.id]);
   useEffect(() => { void load(); }, [load]);
   async function saveRating(value: number) {
-    if (!user) { window.location.assign(`/auth?mode=register&intent=review&next=${encodeURIComponent(window.location.pathname)}`); return; }
+    if (!user) { askForAccount("calificar este evento", window.location.pathname, "review"); return; }
     if (ratingBusy) return;
     setRatingBusy(true); setRatingMessage("");
     try {
@@ -44,6 +45,7 @@ export default function ReviewDetail({ race }: { race: PublicRace }) {
     finally { setRatingBusy(false); }
   }
   function openReviewEditor() {
+    if (!user) { askForAccount("reseñar este evento", window.location.pathname, "review"); return; }
     setReviewEditorOpen(true);
     window.dispatchEvent(new Event("dorsalia:open-review-editor"));
   }
@@ -65,7 +67,7 @@ export default function ReviewDetail({ race }: { race: PublicRace }) {
         <div><strong className="text-xl">{data.review_count}</strong><span className="mt-1 flex items-center justify-center gap-1 text-xs text-white/60"><img src="/reviews/star.svg" width={12} height={12} alt="" className="brightness-0 invert" />Reseñas</span></div>
       </div>
       <CreatorEventPhotosLink eventId={race.id} slug={billboardSlug(race)} />
-      <p className="mt-7 text-[16px]">Califica y confirma tu participación</p>
+      <p className="mt-7 text-[16px]">Califica este evento</p>
       <div className="mt-5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-[9px]" aria-label="Califica de una a cinco estrellas">{Array.from({ length: 5 }, (_, i) => <button key={i} type="button" onClick={() => void saveRating(i + 1)} disabled={ratingBusy} aria-label={`Calificar ${i + 1} ${i === 0 ? "estrella" : "estrellas"}`} aria-pressed={data.my_rating === i + 1} className="h-[30px] w-[30px] shrink-0 disabled:opacity-50"><img src="/reviews/star.svg" alt="" width={30} height={30} className={`h-[30px] w-[30px] ${i < (data.my_rating || 0) ? "" : "grayscale opacity-50"}`} /></button>)}</div>
         <GlassPanel radius={999} className="shrink-0" style={{ height: 54, width: "fit-content" }} glassProps={{ glassColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.25)", blur: 16, frost: 0, saturation: 130, aberrationIntensity: 0.02 }}><button type="button" onClick={openReviewEditor} className="flex h-full items-center gap-2 px-[15px] text-[16px] text-white">Reseñar<img src="/reviews/resenas-post.svg" alt="" width={24} height={24} /></button></GlassPanel>

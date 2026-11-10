@@ -4,9 +4,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://portal.dorsalia.run").trim();
 const anon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 
+/** Cookie prefix shared by the browser session and the server auth client. */
+export const ATHLETE_AUTH_STORAGE_KEY = "dorsalia-athlete-auth";
+
 /** Shared cookie domain so dorsalia.run and *.dorsalia.run share athlete session. */
-export const ATHLETE_COOKIE_DOMAIN =
-  process.env.NEXT_PUBLIC_AUTH_COOKIE_DOMAIN || ".dorsalia.run";
+export function athleteCookieDomain(): string | undefined {
+  const domain = (process.env.NEXT_PUBLIC_AUTH_COOKIE_DOMAIN || ".dorsalia.run").trim();
+  if (!domain || domain === "localhost" || domain === "127.0.0.1") return undefined;
+  return domain;
+}
+
+export const ATHLETE_COOKIE_DOMAIN = athleteCookieDomain();
+
+function browserSupabaseUrl() {
+  if (process.env.NODE_ENV === "development" && typeof window !== "undefined") return window.location.origin;
+  return url;
+}
 
 let cached: SupabaseClient | null = null;
 
@@ -21,9 +34,10 @@ export function createClient(): SupabaseClient {
     );
   }
   if (cached) return cached;
-  cached = createBrowserClient(url, anon, {
+  const domain = athleteCookieDomain();
+  cached = createBrowserClient(browserSupabaseUrl(), anon, {
     cookieOptions: {
-      domain: ATHLETE_COOKIE_DOMAIN,
+      ...(domain ? { domain } : {}),
       path: "/",
       sameSite: "lax",
     },
@@ -32,7 +46,7 @@ export function createClient(): SupabaseClient {
       autoRefreshToken: true,
       detectSessionInUrl: true,
       flowType: "pkce",
-      storageKey: "dorsalia-athlete-auth",
+      storageKey: ATHLETE_AUTH_STORAGE_KEY,
     },
   });
   return cached;

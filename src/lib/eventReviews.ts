@@ -1,5 +1,13 @@
 import { createClient } from "@/lib/supabase/client";
 
+export type ReviewExperience = "participated" | "watched";
+
+export function reviewExperienceLabel(value?: string | null) {
+  if (value === "participated") return "Participó";
+  if (value === "watched") return "Vio el evento";
+  return null;
+}
+
 export type ReviewPhoto = {
   id: string;
   image_url: string;
@@ -23,8 +31,10 @@ export type EventReview = {
   activity_post_id?: string | null;
   like_count?: number;
   repost_count?: number;
+  comment_count?: number;
   liked?: boolean;
   reposted?: boolean;
+  experience?: ReviewExperience | null;
   photos: ReviewPhoto[];
 };
 

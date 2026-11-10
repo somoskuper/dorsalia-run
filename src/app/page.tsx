@@ -4,6 +4,8 @@ import { permanentRedirect } from "next/navigation";
 import ExploreView from "@/components/ExploreView";
 import { fetchMarketplaceAdCards } from "@/lib/marketplaceAds";
 import { billboardSlug, cardCoverImage, coverImage, fetchPublicRaceBySlug, fetchPublicRaces, marketplaceEventUrl, seoDescription } from "@/lib/races";
+import { homePhotoSlots } from "@/components/activity/HomePhotoRail";
+import { MarketplacePageSkeleton } from "@/components/ui/Skeleton";
 
 /** Cache public cartelera for 60s — fetchPublicRaces already uses revalidate: 60 */
 export const revalidate = 60;
@@ -86,8 +88,8 @@ export default async function HomePage({ searchParams }: Props) {
   const status =
     statusRaw === "active" || statusRaw === "inactive" ? statusRaw : "all";
   const q = (sp.q || "").trim();
-  const allRaces = await fetchPublicRaces({ status: "all" });
-  const adCards = await fetchMarketplaceAdCards();
+  const photos = homePhotoSlots();
+  const [allRaces, adCards] = await Promise.all([fetchPublicRaces({ status: "all" }), fetchMarketplaceAdCards()]);
   const races =
     status === "all"
       ? allRaces
@@ -105,13 +107,15 @@ export default async function HomePage({ searchParams }: Props) {
           { "@type": "WebSite", "@id": "https://dorsalia.run/#website", url: "https://dorsalia.run/", name: "Dorsalia.run", description: HOME_DESCRIPTION, inLanguage: "es-MX", publisher: { "@id": "https://dorsalia.run/#organization" }, potentialAction: { "@type": "SearchAction", target: "https://dorsalia.run/buscar?q={search_term_string}", "query-input": "required name=search_term_string" } },
         ],
       }) }} />
-      <Suspense fallback={<div className="min-h-[60vh] bg-[#070707]" />}>
+      <Suspense fallback={<MarketplacePageSkeleton />}>
         <ExploreView
           races={races}
           adCards={adCards}
           status={status}
           q={q}
           counts={{ all: allRaces.length, active: activeCount, inactive: inactiveCount }}
+          photoRail={photos.mobile}
+          desktopPhotoRail={photos.desktop}
         />
       </Suspense>
     </div>

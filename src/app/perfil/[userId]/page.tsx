@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AccountProfileView, { type ProfileMedal } from "@/components/account/AccountProfileView";
+import { ProfileSectionSkeleton } from "@/components/account/AccountSectionSkeletons";
 import type { PublicAthleteProfile } from "@/lib/eventReviews";
 import { resolveProfileCover } from "@/lib/profileCovers";
 import { createClient } from "@/lib/supabase/client";
@@ -16,6 +17,7 @@ export default function PublicAthleteProfilePage() {
   const identifier = decodeURIComponent(String(params.userId || "")).trim();
   const [profile, setProfile] = useState<PublicAthleteProfile | null>(null);
   const [ratingCount, setRatingCount] = useState(0);
+  const [photographer, setPhotographer] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,11 +26,16 @@ export default function PublicAthleteProfilePage() {
     const request = UUID_PATTERN.test(identifier)
       ? supabase.rpc("public_athlete_profile", { p_user_id: identifier })
       : supabase.rpc("public_athlete_profile_by_username", { p_username: identifier });
-    void request.then(({ data }) => {
+    void request.then(async ({ data }) => {
       const nextProfile = data && typeof data === "object" ? data as PublicAthleteProfile : null;
       setProfile(nextProfile);
       if (nextProfile?.user_id) {
-        void supabase.rpc("public_athlete_rating_count", { p_user_id: nextProfile.user_id }).then(({ data: count }) => setRatingCount(Number(count) || 0));
+        const [{ data: count }, { data: creator }] = await Promise.all([
+          supabase.rpc("public_athlete_rating_count", { p_user_id: nextProfile.user_id }),
+          supabase.from("creator_profiles").select("creator_type,is_active").eq("user_id", nextProfile.user_id).maybeSingle(),
+        ]);
+        setRatingCount(Number(count) || 0);
+        setPhotographer(creator?.creator_type === "photographer" && creator.is_active === true);
       }
       setLoading(false);
       if (UUID_PATTERN.test(identifier) && nextProfile?.username) {
@@ -37,7 +44,7 @@ export default function PublicAthleteProfilePage() {
     });
   }, [identifier, router]);
 
-  if (loading) return <main className="min-h-screen bg-[#070707] px-5 py-24 text-center text-white/45">Cargando perfil…</main>;
+  if (loading) return <ProfileSectionSkeleton ownProfile={false} />;
   if (!profile) return <main className="min-h-screen bg-[#070707] px-5 py-24 text-center"><p className="text-white/55">Este perfil no está disponible.</p><Link href="/" className="mt-5 inline-block font-bold text-[#c9f24b]">Volver a Dorsalia</Link></main>;
 
   const featuredMedals: ProfileMedal[] = (profile.featured_medal_keys || []).map((key) => ({
@@ -59,6 +66,7 @@ export default function PublicAthleteProfilePage() {
     medals={featuredMedals}
     featuredMedals={featuredMedals}
     readOnly
+    isPhotographer={photographer}
     initialTab="actividad"
   />;
 }

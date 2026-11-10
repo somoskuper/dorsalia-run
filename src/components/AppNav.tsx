@@ -21,7 +21,7 @@ function NavIcon({ id, active }: { id: TabId; active: boolean }) {
 }
 
 export default function AppNav({ inDocumentFlow = false }: { inDocumentFlow?: boolean }) {
-  const { loading, profile } = useAthleteAuth();
+  const { user, loading, profile } = useAthleteAuth();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
@@ -160,24 +160,26 @@ export default function AppNav({ inDocumentFlow = false }: { inDocumentFlow?: bo
                 <AssetIcon name="user-stroke" size={24} className="text-white" />
               )}
             </Link>
-            <Link
-              href="/settings"
-              className="grid shrink-0 place-items-center"
-              style={deskIconStyle}
-              aria-label="Configuración"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={ICON_SETTINGS}
-                alt=""
-                width={DESK_ICON}
-                height={DESK_ICON}
-                style={{
-                  ...deskIconStyle,
-                  opacity: profileActive ? 1 : 0.4,
-                }}
-              />
-            </Link>
+            {user ? (
+              <Link
+                href="/settings"
+                className="grid shrink-0 place-items-center"
+                style={deskIconStyle}
+                aria-label="Configuración"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ICON_SETTINGS}
+                  alt=""
+                  width={DESK_ICON}
+                  height={DESK_ICON}
+                  style={{
+                    ...deskIconStyle,
+                    opacity: profileActive ? 1 : 0.4,
+                  }}
+                />
+              </Link>
+            ) : null}
           </div>
         </nav>
       </aside>

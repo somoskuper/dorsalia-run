@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export default function PostMenu({ onEdit, onDelete, postId }: { onEdit?: () => void; onDelete?: () => void | Promise<void>; postId?: string | null }) {
+export default function PostMenu({ onEdit, onArchive, onDelete, postId }: { onEdit?: () => void; onArchive?: () => void | Promise<void>; onDelete?: () => void | Promise<void>; postId?: string | null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -27,6 +27,7 @@ export default function PostMenu({ onEdit, onDelete, postId }: { onEdit?: () => 
     </button>
     {open ? <div className="absolute right-0 top-10 z-30 w-36 overflow-hidden rounded-2xl border border-white/10 bg-[#1a1a1a] p-1 shadow-2xl">
       {onEdit ? <button type="button" onClick={() => { setOpen(false); onEdit(); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-white hover:bg-white/10">Editar</button> : null}
+      {onArchive ? <button type="button" onClick={() => { setOpen(false); void onArchive(); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-white hover:bg-white/10">Archivar</button> : null}
       {onDelete ? <button type="button" onClick={() => { setOpen(false); void onDelete(); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-red-300 hover:bg-white/10">Eliminar</button> : null}
       <button type="button" onClick={() => { setOpen(false); void share(); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-white hover:bg-white/10">Compartir</button>
     </div> : null}

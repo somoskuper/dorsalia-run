@@ -272,7 +272,7 @@ export default async function IniciarPage() {
             <div className="col-span-2 md:col-span-1">
               <h2 className="text-[16px] font-semibold">Ayuda</h2>
               <nav className="mt-4 flex flex-col gap-3 text-[16px] font-light text-white/50" aria-label="Ayuda">
-                <a href="mailto:hola@dorsalia.run">Contacto</a>
+                <a href="mailto:contacto@dorsalia.run">contacto@dorsalia.run</a>
                 <a href="https://portal.dorsalia.run">Portal del organizador</a>
               </nav>
             </div>
@@ -286,7 +286,7 @@ export default async function IniciarPage() {
             ))}
           </div>
 
-          <p className="mt-12 text-[12px] font-light text-white/35">© {new Date().getFullYear()} Dorsalia Run. Todos los derechos reservados.</p>
+          <p className="mt-12 text-[12px] font-light text-white/35">© {new Date().getFullYear()} Dorsalia Run. Todos los derechos reservados. Beta 1.23.5</p>
         </div>
       </footer>
     </main>

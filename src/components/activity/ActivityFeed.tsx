@@ -2,32 +2,38 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import ReviewPost from "@/components/reviews/ReviewPost";
 import PostMenu from "@/components/activity/PostMenu";
-import PostReactions from "@/components/activity/PostReactions";
+import PostEngagement from "@/components/activity/PostEngagement";
+import PhotoViewer from "@/components/media/PhotoViewer";
 import RelativeTime from "@/components/activity/RelativeTime";
 import EventGlassLink from "@/components/activity/EventGlassLink";
 import { fetchActivityFeed, type ActivityItem, type ActivityPhoto } from "@/lib/activity";
+import { isPortfolioName } from "@/lib/creatorPortfolio";
 import { createClient } from "@/lib/supabase/client";
 import { publicEventPath, usePublicEventPaths, type EventPaths } from "@/lib/usePublicEventPaths";
+import { Bone, PostSkeleton } from "@/components/ui/Skeleton";
+import ViewedCreatorPost from "@/components/creator/ViewedCreatorPost";
 
-export default function ActivityFeed({ userId, followingOnly = false, refreshKey = 0, emptyText = "Todavía no hay actividad." }: { userId?: string | null; followingOnly?: boolean; refreshKey?: number; emptyText?: string }) {
+export default function ActivityFeed({ userId, followingOnly = false, excludeUserId = null, refreshKey = 0, emptyText = "Todavía no hay actividad." }: { userId?: string | null; followingOnly?: boolean; excludeUserId?: string | null; refreshKey?: number; emptyText?: string }) {
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const eventPaths = usePublicEventPaths();
+  const visible = (next: ActivityItem[]) => next.filter((item) => item.user_id !== excludeUserId && !(item.post_type === "creator" && (isPortfolioName(item.gallery_name) || isPortfolioName(item.body))));
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    void fetchActivityFeed(userId, 50, followingOnly).then((next) => { if (active) setItems(next); }).catch(() => { if (active) setItems([]); }).finally(() => { if (active) setLoading(false); });
+    void fetchActivityFeed(userId, 50, followingOnly).then((next) => { if (active) setItems(visible(next)); }).catch(() => { if (active) setItems([]); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [userId, followingOnly, refreshKey]);
+  }, [userId, followingOnly, excludeUserId, refreshKey]);
 
   useEffect(() => {
-    const refresh = () => void fetchActivityFeed(userId, 50, followingOnly).then(setItems).catch(() => setItems([]));
+    const refresh = () => void fetchActivityFeed(userId, 50, followingOnly).then((next) => setItems(visible(next))).catch(() => setItems([]));
     window.addEventListener("dorsalia:activity-published", refresh);
     return () => window.removeEventListener("dorsalia:activity-published", refresh);
-  }, [userId, followingOnly]);
+  }, [userId, followingOnly, excludeUserId]);
 
   async function remove(item: ActivityItem) {
     if (!window.confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) return;
@@ -51,54 +57,65 @@ export default function ActivityFeed({ userId, followingOnly = false, refreshKey
       : window.dispatchEvent(new CustomEvent("dorsalia:edit-post", { detail: item })) : undefined} onDelete={item.mine ? () => remove(item) : undefined} />;
   }
 
-  if (loading) return <div className="grid min-h-40 place-items-center"><span className="h-9 w-9 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" /></div>;
-  if (!items.length) return <p className="px-5 py-8 text-sm text-white/40">{emptyText}</p>;
+  if (loading) return <PostSkeleton count={2} />;
+  if (!items.length) return emptyText ? <p className="px-[15px] py-8 text-sm text-white/40">{emptyText}</p> : null;
 
   return <div className="space-y-0">
-    {items.map((item) => item.post_type === "review" ? (
-      <ReviewPost
-        key={item.id}
-        authorName={item.display_name}
-        username={item.username}
-        avatarUrl={item.avatar_url}
-        profileHref={`/perfil/${item.username}`}
-        rating={Number(item.rating) || 0}
-        comment={item.body}
-        photos={item.photos}
-        fallbackImage={null}
-        eventName={item.event_name}
-        eventHref={publicEventPath(eventPaths, item.event_slug)}
-        updatedAt={item.created_at}
-        postId={item.id}
-        likeCount={Number(item.like_count) || 0}
-        liked={Boolean(item.liked)}
-        action={actions(item)}
-        variant="feed"
-      />
-    ) : parseTimedResult(item.body, item.event_slug || "") ? <ActivityCard key={item.id} item={item} action={actions(item)} eventPaths={eventPaths} /> : <ReviewPost
-      key={item.id}
-      authorName={item.display_name}
-      username={item.username}
-      avatarUrl={item.avatar_url}
-      profileHref={`/perfil/${item.username}`}
-      rating={0}
-      comment={item.post_type === "registration" ? `Se inscribió a ${item.event_name || "un evento"}${item.body ? ` · ${item.body}` : ""}` : item.post_type === "share" ? `Compartió ${item.event_name || "un evento"}${item.body ? ` · ${item.body}` : ""}` : item.body}
-      photos={item.photos}
-      fallbackImage={item.event_cover_url}
-      eventName={item.event_name}
-      eventHref={item.post_type === "creator" && item.creator_publication_id ? `/fotos/${encodeURIComponent(item.event_slug || "")}?publicacion=${item.creator_publication_id}` : publicEventPath(eventPaths, item.event_slug)}
-      updatedAt={item.created_at}
-      postId={item.id}
-      likeCount={Number(item.like_count) || 0}
-      liked={Boolean(item.liked)}
-      action={actions(item)}
-      variant="feed"
-      mediaAspect={item.post_type === "creator" || item.photos.length === 0 ? "square" : "portrait"}
-    />)}
+    {items.map((item) => <ActivityPostArticle key={item.id} item={item} action={actions(item)} eventPaths={eventPaths} />)}
   </div>;
 }
 
-function ActivityCard({ item, action, eventPaths }: { item: ActivityItem; action?: React.ReactNode; eventPaths: EventPaths | null }) {
+export function ActivityPostArticle({ item, action, eventPaths, detail = false }: { item: ActivityItem; action?: React.ReactNode; eventPaths: EventPaths | null; detail?: boolean }) {
+  if (item.post_type === "review") return <ReviewPost
+    authorName={item.display_name}
+    username={item.username}
+    avatarUrl={item.avatar_url}
+    profileHref={`/perfil/${item.username}`}
+    rating={Number(item.rating) || 0}
+    comment={item.body}
+    photos={item.photos}
+    fallbackImage={null}
+    eventName={item.event_name}
+    eventHref={publicEventPath(eventPaths, item.event_slug)}
+    updatedAt={item.created_at}
+    postId={item.id}
+    likeCount={Number(item.like_count) || 0}
+    liked={Boolean(item.liked)}
+    commentCount={Number(item.comment_count) || 0}
+    detail={detail}
+    action={action}
+    variant="feed"
+  />;
+  if (parseTimedResult(item.body, item.event_slug || "")) return <ActivityCard item={item} action={action} eventPaths={eventPaths} detail={detail} />;
+  const article = <ReviewPost
+    authorName={item.display_name}
+    username={item.username}
+    avatarUrl={item.avatar_url}
+    profileHref={`/perfil/${item.username}`}
+    rating={0}
+    comment={item.post_type === "registration" ? `Se inscribió a ${item.event_name || "un evento"}${item.body ? ` · ${item.body}` : ""}` : item.post_type === "share" ? `Compartió ${item.event_name || "un evento"}${item.body ? ` · ${item.body}` : ""}` : item.body}
+    photos={item.photos}
+    fallbackImage={item.event_cover_url}
+    eventName={item.event_name}
+    eventHref={item.post_type === "creator" && item.creator_publication_id && item.event_slug ? `/fotos/${encodeURIComponent(item.event_slug)}/${item.creator_publication_id}` : publicEventPath(eventPaths, item.event_slug)}
+    eventCoverUrl={item.post_type === "creator" ? item.event_cover_url : null}
+    updatedAt={item.created_at}
+    postId={item.id}
+    likeCount={Number(item.like_count) || 0}
+    liked={Boolean(item.liked)}
+    commentCount={Number(item.comment_count) || 0}
+    detail={detail}
+    action={action}
+    variant="feed"
+    mediaAspect="portrait"
+    verified={item.post_type === "creator"}
+  />;
+  if (item.post_type !== "creator" || !item.creator_publication_id) return article;
+  return <ViewedCreatorPost publicationId={item.creator_publication_id} surface="feed">{article}</ViewedCreatorPost>;
+}
+
+function ActivityCard({ item, action, eventPaths, detail = false }: { item: ActivityItem; action?: React.ReactNode; eventPaths: EventPaths | null; detail?: boolean }) {
+  const router = useRouter();
   const timedResult = parseTimedResult(item.body, item.event_slug || "");
   const eventHref = publicEventPath(eventPaths, timedResult?.event_slug) || publicEventPath(eventPaths, item.event_slug);
   const lead = item.post_type === "registration"
@@ -115,20 +132,20 @@ function ActivityCard({ item, action, eventPaths }: { item: ActivityItem; action
       {eventHref ? <span className="mt-1 block text-xs font-semibold text-white/45">Ver ficha del evento</span> : null}</span>
   </> : null;
 
-  return <article id={`post-${item.id}`} className="overflow-hidden border-b border-white/10 bg-[#070707] py-5">
-    <div className="flex items-center gap-3 px-5">
+  return <article id={`post-${item.id}`} onClick={(event) => { if (detail) return; const target = event.target as HTMLElement; if (target.closest("a,button,input,textarea,summary,[data-post-media],[data-post-copy]")) return; router.push(`/post/${item.id}`); }} className={`overflow-hidden border-b border-white/10 bg-[#070707] py-5${!detail ? " cursor-pointer" : ""}`}>
+    <div className="flex items-center gap-3 px-[15px]">
       <Link href={`/perfil/${item.username}`} className="flex min-w-0 flex-1 items-center gap-3">
         {item.avatar_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={item.avatar_url} alt="" className="h-11 w-11 rounded-full object-cover" /> : <span className="grid h-11 w-11 place-items-center rounded-full bg-white/10 font-bold">{item.display_name.slice(0, 1)}</span>}
         <div className="min-w-0"><p className="truncate text-sm font-semibold text-white">@{item.username}</p><p className="text-[11px] text-white/50"><RelativeTime value={item.created_at} /></p></div>
       </Link>
-      <PostReactions postId={item.id} initialLikes={Number(item.like_count) || 0} initialLiked={Boolean(item.liked)} />
       {action || <details className="relative"><summary className="list-none cursor-pointer text-2xl leading-none text-white/80" aria-label="Más opciones">⋮</summary><span className="absolute right-0 top-8 z-20 whitespace-nowrap rounded-xl bg-[#181818] px-4 py-3 text-sm text-white">Compartir</span></details>}
     </div>
-    {timedResult ? eventHref ? <Link href={eventHref} className="mx-5 mt-4 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition hover:border-[#c9f24b]/50">{resultContent}</Link> : <div className="mx-5 mt-4 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4">{resultContent}</div> : lead ? <p className="px-5 pt-4 text-[15px] leading-relaxed text-white/75"><strong className="text-white">@{item.username}</strong> {lead}</p> : null}
-    {timedResult?.caption ? <p className="whitespace-pre-line px-5 pt-4 text-[15px] leading-relaxed text-white/85">{timedResult.caption}</p> : null}
+    {timedResult ? eventHref ? <Link href={eventHref} className="mx-[15px] mt-4 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition hover:border-[#c9f24b]/50">{resultContent}</Link> : <div className="mx-[15px] mt-4 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4">{resultContent}</div> : lead ? <p className="px-[15px] pt-4 text-[15px] leading-relaxed text-white/75"><strong className="text-white">@{item.username}</strong> {lead}</p> : null}
     {media.length && !timedResult ? <ActivityMedia photos={media} postId={item.id} /> : null}
-    {item.body && !timedResult ? <p className="whitespace-pre-line px-5 pt-4 text-[15px] leading-relaxed text-white/85"><strong className="mr-2 text-white">@{item.username}</strong>{item.body}</p> : null}
-    {eventHref && timedResult ? <div className="flex justify-end px-5 pt-3"><EventGlassLink href={eventHref} /></div> : null}
+    <div className="mt-3 px-[15px]"><PostEngagement postId={item.id} likeCount={Number(item.like_count) || 0} liked={Boolean(item.liked)} commentCount={Number(item.comment_count) || 0} detail={detail} /></div>
+    {timedResult?.caption ? <p data-post-copy className="whitespace-pre-line px-[15px] pt-3 text-[15px] leading-relaxed text-white/85">{timedResult.caption}</p> : null}
+    {item.body && !timedResult ? <p data-post-copy className="whitespace-pre-line px-[15px] pt-3 text-[15px] leading-relaxed text-white/85"><strong className="mr-2 text-white">@{item.username}</strong>{item.body}</p> : null}
+    {eventHref && timedResult ? <div className="flex justify-end px-[15px] pt-3"><EventGlassLink href={eventHref} /></div> : null}
   </article>;
 }
 
@@ -158,15 +175,30 @@ function parseTimedResult(body: string, fallbackEventSlug: string) {
 function ActivityMedia({ photos, postId }: { photos: ActivityPhoto[]; postId: string }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
+  const [viewer, setViewer] = useState<number | null>(null);
   const lastTap = useRef(0);
-  const doubleTap = () => { const now = Date.now(); if (now - lastTap.current < 330) window.dispatchEvent(new Event(`dorsalia:like-post:${postId}`)); lastTap.current = now; };
-  const content = <div ref={ref} onDoubleClick={() => window.dispatchEvent(new Event(`dorsalia:like-post:${postId}`))} onPointerUp={doubleTap} onScroll={() => { const n = ref.current; if (n?.clientWidth) setActive(Math.round(n.scrollLeft / n.clientWidth)); }} className="mt-4 flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+  const drag = useRef({ x: 0, y: 0 });
+  const openTimer = useRef<number | null>(null);
+  function onPointerUp(event: React.PointerEvent) {
+    if (Math.hypot(event.clientX - drag.current.x, event.clientY - drag.current.y) > 8) return;
+    const now = Date.now();
+    if (now - lastTap.current < 330) {
+      if (openTimer.current) window.clearTimeout(openTimer.current);
+      window.dispatchEvent(new Event(`dorsalia:like-post:${postId}`));
+      lastTap.current = 0;
+      return;
+    }
+    lastTap.current = now;
+    const index = active;
+    openTimer.current = window.setTimeout(() => setViewer(index), 280);
+  }
+  const content = <div ref={ref} onPointerDown={(event) => { drag.current = { x: event.clientX, y: event.clientY }; }} onPointerUp={onPointerUp} onScroll={() => { const n = ref.current; if (n?.clientWidth) setActive(Math.round(n.scrollLeft / n.clientWidth)); }} className="mt-4 flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     {photos.map((photo) => <ActivityImage key={photo.id} photo={photo} />)}
   </div>;
-  return <div className="relative">{content}{photos.length > 1 ? <span className="absolute right-3 top-7 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white">{active + 1}/{photos.length}</span> : null}</div>;
+  return <div data-post-media className="relative">{content}{photos.length > 1 ? <span className="absolute right-3 top-7 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white">{active + 1}/{photos.length}</span> : null}{viewer !== null ? <PhotoViewer photos={photos.map((photo) => ({ id: photo.id, src: photo.image_url, alt: "Foto de la publicación" }))} startIndex={viewer} onClose={() => setViewer(null)} /> : null}</div>;
 }
 
 function ActivityImage({ photo }: { photo: ActivityPhoto }) {
   const [loaded, setLoaded] = useState(false);
-  return <div className="relative aspect-[4/5] min-w-full snap-center bg-white/[0.035]">{!loaded ? <div className="absolute inset-0 grid place-items-center"><span className="h-9 w-9 animate-spin rounded-full border-2 border-white/20 border-t-[#c9f24b]" /></div> : null}{/* eslint-disable-next-line @next/next/no-img-element */}<img src={photo.image_url} alt="" loading="lazy" onLoad={() => setLoaded(true)} className={`h-full w-full object-cover transition-opacity ${loaded ? "opacity-100" : "opacity-0"}`} /></div>;
+  return <div className="relative aspect-[4/5] min-w-full snap-center bg-white/[0.035]">{!loaded ? <Bone className="absolute inset-0 rounded-none" /> : null}{/* eslint-disable-next-line @next/next/no-img-element */}<img src={photo.image_url} alt="" loading="lazy" decoding="async" onLoad={() => setLoaded(true)} className={`h-full w-full object-cover transition-opacity ${loaded ? "opacity-100" : "opacity-0"}`} /></div>;
 }

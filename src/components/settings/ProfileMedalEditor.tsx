@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import type { ProfileMedal } from "@/components/account/AccountProfileView";
+import { PhotoGridSkeleton } from "@/components/ui/Skeleton";
 
 type Registration = { id: string; dynamic_data?: Record<string, unknown>; race_event?: { medal_image_url?: string | null; routes?: { medal_image_url?: string | null; label?: string | null }[] | null; event_date?: string | null } | null };
 
@@ -81,7 +82,7 @@ export default function ProfileMedalEditor() {
       <form id="profile-medals-form" onSubmit={(event) => void save(event)}>
         <h2 className="text-[20px] font-semibold">Medallas destacadas</h2>
         <p className="mt-[10px] text-[14px] text-white/50">Elige hasta tres medallas para mostrar en tu perfil. {selected.length}/3 seleccionadas.</p>
-        {!ready ? <p className="mt-5 text-white/50">Cargando medallas…</p> : medals.length ? <div className="mt-5 grid grid-cols-3 gap-[10px]">
+        {!ready ? <div className="mt-5"><PhotoGridSkeleton count={6} columns={3} /></div> : medals.length ? <div className="mt-5 grid grid-cols-3 gap-[10px]">
           {medals.map((medal) => <button key={medal.key} type="button" onClick={() => toggle(medal.key)} aria-pressed={selected.includes(medal.key)} className={`aspect-square rounded-[20px] bg-[#191919] p-[10px] ${selected.includes(medal.key) ? "ring-2 ring-[#C5E500]" : ""}`} title={medal.label}>
             {/* eslint-disable-next-line @next/next/no-img-element */}<img src={medal.imageUrl} alt={medal.label} className="h-full w-full object-contain" />
           </button>)}

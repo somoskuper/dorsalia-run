@@ -25,8 +25,10 @@ cópialo a la raíz del clone. Aunque la clave anónima de Supabase se entrega a
 navegador, se conserva fuera del repositorio para evitar copias accidentales.
 
 No uses ni copies en este proyecto las credenciales de servidor: `SERVICE_ROLE_KEY`,
-`JWT_SECRET`, claves de Stripe, SMTP/Resend, OpenRouter, Google OAuth ni
-contraseñas de PostgreSQL. El marketplace no las necesita.
+`JWT_SECRET`, claves de Stripe, OpenRouter, Google OAuth ni contraseñas de
+PostgreSQL. El código para cambiar la contraseña sí se envía con Resend:
+`RESEND_API_KEY` y `RESEND_FROM_EMAIL` viven solo en `.env.local` o en el
+entorno del servidor, nunca en Git.
 
 ## Autenticación local
 

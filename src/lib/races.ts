@@ -214,6 +214,22 @@ export function billboardSlug(r: Pick<PublicRace, "public_subdomain" | "slug">):
   return (r.public_subdomain || r.slug || "").toLowerCase();
 }
 
+/** Canonical photos hub for one event: /fotos/{slug}. */
+export function eventPhotosPath(r: Pick<PublicRace, "public_subdomain" | "slug">): string {
+  return `/fotos/${encodeURIComponent(billboardSlug(r))}`;
+}
+
+export function eventPhotosUrl(r: Pick<PublicRace, "public_subdomain" | "slug">): string {
+  return `https://${MARKETPLACE_HOST}${eventPhotosPath(r)}`;
+}
+
+export async function fetchPublicRaceByAnySlug(slug: string): Promise<PublicRace | null> {
+  const normalized = String(slug || "").trim().toLowerCase();
+  if (!normalized) return null;
+  const races = await fetchPublicRaces({ status: "all" });
+  return races.find((race) => [race.public_subdomain, race.slug, race.event_slug, billboardSlug(race)].some((value) => String(value || "").trim().toLowerCase() === normalized)) || null;
+}
+
 export const SPORT_CATEGORY_LABELS: Record<string, string> = {
   running: "Running",
   trail: "Trail running",
