@@ -14,6 +14,7 @@ import EventSearchBar from "@/components/search/EventSearchBar";
 import AssetIcon from "@/components/ui/AssetIcon";
 import { useSavedRaces } from "@/components/SavedRacesProvider";
 import { HOME_COLLECTION_URLS, type HomeCollectionId } from "@/lib/homeCollectionUrls";
+import { pinFinishedEvents } from "@/lib/reviewDirectory";
 import { topRatedRaces } from "@/lib/topRatedRaces";
 import Button from "@/components/ui/Button";
 import GlassPanel from "@/components/ui/GlassPanel";
@@ -543,13 +544,14 @@ function HomeEventSections({ races, residence, onOpen, photoRail }: { races: Pub
   const recentlyFinished = useMemo(() => {
     const now = Date.now();
     const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-    return races.filter((race) => {
+    const finished = races.filter((race) => {
       const eventTime = Date.parse(race.event_date || "");
       return Number.isFinite(eventTime) && eventTime <= now && eventTime >= weekAgo && (isFinalized(race) || eventTime < now);
     }).sort((a, b) => {
       const score = (race: PublicRace) => (Number(race.rating_average) || 0) * 100 + (Number(race.review_count) || 0) * 20 + Math.log1p(Number(race.view_count) || 0) * 15;
       return score(b) - score(a) || (Number(b.review_count) || 0) - (Number(a.review_count) || 0) || (Number(b.view_count) || 0) - (Number(a.view_count) || 0);
     });
+    return pinFinishedEvents(finished);
   }, [races]);
   const upcoming = useMemo(() => {
     const week = currentMondayRange();
@@ -566,7 +568,7 @@ function HomeEventSections({ races, residence, onOpen, photoRail }: { races: Pub
   }, [races, residence]);
   const newest = useMemo(() => races.filter((race) => !isFinalized(race)).sort((a, b) => Date.parse(b.updated_at || "") - Date.parse(a.updated_at || "")), [races]);
   const recentIds = new Set(recentlyFinished.map((race) => race.id));
-  const finalized = useMemo(() => races.filter((race) => isFinalized(race) && !recentIds.has(race.id)).sort((a, b) => Date.parse(b.event_date || "") - Date.parse(a.event_date || "")), [races, recentlyFinished]);
+  const finalized = useMemo(() => pinFinishedEvents(races.filter((race) => isFinalized(race) && !recentIds.has(race.id)).sort((a, b) => Date.parse(b.event_date || "") - Date.parse(a.event_date || ""))), [races, recentlyFinished]);
   const sections: Array<{ id: HomeCollectionId; title: string; items: PublicRace[] }> = [
     { id: "top", title: "Mejores valorados", items: best },
     { id: "recent-finished", title: "Recién finalizados", items: recentlyFinished },

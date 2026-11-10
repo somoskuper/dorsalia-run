@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useSavedRaces } from "@/components/SavedRacesProvider";
 import { topRatedRaces } from "@/lib/topRatedRaces";
-import { reviewDirectory } from "@/lib/reviewDirectory";
+import { isPinnedFinishedEvent, reviewDirectory } from "@/lib/reviewDirectory";
 import ReviewRaceRow from "@/components/reviews/ReviewRaceRow";
 import EventPhotoRail from "@/components/activity/EventPhotoRail";
 import AssetIcon from "@/components/ui/AssetIcon";
@@ -125,8 +125,9 @@ export default function MobileHome({ races, residence = "", selectedSport = "run
       return Number(isNear(b)) - Number(isNear(a));
     });
   }, [sportRaces, residence]);
-  const finished = useMemo(() => reviewDirectory(sportRaces).slice(0, 12), [sportRaces]);
-  const ranked = useMemo(() => reviewDirectory(sportRaces).slice(0, 6), [sportRaces]);
+  const pinnedFinished = useMemo(() => reviewDirectory(races).filter(isPinnedFinishedEvent), [races]);
+  const finished = useMemo(() => [...pinnedFinished, ...reviewDirectory(sportRaces).filter((race) => !isPinnedFinishedEvent(race))].slice(0, 12), [pinnedFinished, sportRaces]);
+  const ranked = useMemo(() => finished.slice(0, 6), [finished]);
   const activeLabel = SPORTS.find((sport) => sport.id === selectedSport)?.label || "Running";
 
   return <div className="min-h-screen bg-[#0e0e0e] pb-24 text-white">

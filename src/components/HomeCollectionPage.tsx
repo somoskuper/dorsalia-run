@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import ExploreView, { type SeoHubContent } from "@/components/ExploreView";
 import { HOME_COLLECTION_URLS, type HomeCollectionId } from "@/lib/homeCollectionUrls";
+import { pinFinishedEvents } from "@/lib/reviewDirectory";
 import { fetchPublicRaces, isFinalized, marketplaceEventUrl, sortByClosestDate, type PublicRace } from "@/lib/races";
 
 type CollectionCopy = {
@@ -81,13 +82,13 @@ function currentMondayRange() {
 
 function recentlyFinished(races: PublicRace[], now: number) {
   const weekAgo = now - 7 * 86_400_000;
-  return races.filter((race) => {
+  return pinFinishedEvents(races.filter((race) => {
     const eventTime = Date.parse(race.event_date || "");
     return Number.isFinite(eventTime) && eventTime <= now && eventTime >= weekAgo && (isFinalized(race) || eventTime < now);
   }).sort((a, b) => {
     const score = (race: PublicRace) => (Number(race.rating_average) || 0) * 100 + (Number(race.review_count) || 0) * 20 + Math.log1p(Number(race.view_count) || 0) * 15;
     return score(b) - score(a) || (Number(b.review_count) || 0) - (Number(a.review_count) || 0) || (Number(b.view_count) || 0) - (Number(a.view_count) || 0);
-  });
+  }));
 }
 
 function collectionRaces(id: HomeCollectionId, all: PublicRace[]) {
@@ -104,7 +105,7 @@ function collectionRaces(id: HomeCollectionId, all: PublicRace[]) {
   }
   if (id === "new") return races.filter((race) => !isFinalized(race)).sort((a, b) => Date.parse(b.updated_at || "") - Date.parse(a.updated_at || ""));
   const recentIds = new Set(recentlyFinished(races, now).map((race) => race.id));
-  return races.filter((race) => isFinalized(race) && !recentIds.has(race.id)).sort((a, b) => Date.parse(b.event_date || "") - Date.parse(a.event_date || ""));
+  return pinFinishedEvents(races.filter((race) => isFinalized(race) && !recentIds.has(race.id)).sort((a, b) => Date.parse(b.event_date || "") - Date.parse(a.event_date || "")));
 }
 
 export async function homeCollectionMetadata(id: HomeCollectionId): Promise<Metadata> {

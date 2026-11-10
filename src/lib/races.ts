@@ -293,6 +293,22 @@ export function isEventFree(r: PublicRace): boolean {
   return r.is_free === true;
 }
 
+function calendarDay(date: Date, timeZone: string) {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Mexico_City", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+  }
+}
+
+/** The published race day is already over in the event's timezone. */
+export function raceDayHasPassed(race: { event_date?: string | null; timezone?: string | null }, now = new Date()): boolean {
+  if (!race.event_date) return false;
+  const start = new Date(race.event_date);
+  if (Number.isNaN(start.getTime())) return false;
+  return calendarDay(start, race.timezone || "America/Mexico_City") < calendarDay(now, race.timezone || "America/Mexico_City");
+}
+
 export function isFinalized(r: PublicRace): boolean {
   if (r.lifecycle_status === "finalized" || r.is_active === false) return true;
   // Indexed/externally managed events do not receive Dorsalia lifecycle updates.
@@ -301,7 +317,7 @@ export function isFinalized(r: PublicRace): boolean {
     const startsAt = Date.parse(r.event_date);
     return Number.isFinite(startsAt) && startsAt <= Date.now();
   }
-  return false;
+  return raceDayHasPassed(r);
 }
 
 export function minPrice(r: PublicRace): number {

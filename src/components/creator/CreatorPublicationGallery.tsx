@@ -8,6 +8,7 @@ import PostComments from "@/components/activity/PostComments";
 import CreatorProfileCard, { type CreatorCard } from "@/components/creator/CreatorProfileCard";
 import { EVENT_PHOTOS_BACKGROUND } from "@/components/creator/CreatorEventGallery";
 import { recordCreatorPublicationView } from "@/lib/creatorViews";
+import { returnToPhotoEvent } from "@/lib/photoNavigation";
 
 export type PublicationGallery = {
   id: string;
@@ -39,10 +40,10 @@ export default function CreatorPublicationGallery({ gallery }: { gallery: Public
   return <main className="relative min-h-screen pb-28 text-white">
     <div aria-hidden className="pointer-events-none fixed inset-0" style={{ backgroundImage: EVENT_PHOTOS_BACKGROUND }} />
     <div className="relative mx-auto max-w-2xl px-[15px]">
-      <PageHeader fallbackHref={gallery.eventPhotosHref} backLabel="ver más fotos" sticky gradient={false} rightAction={<ShareButton title={gallery.title} text={`${gallery.title} · ${gallery.eventName}`} />} />
+      <PageHeader fallbackHref={gallery.eventPhotosHref} backLabel="ver más fotos" onBack={() => returnToPhotoEvent(gallery.eventPhotosHref)} sticky gradient={false} rightAction={<ShareButton title={gallery.title} text={`${gallery.title} · ${gallery.eventName}`} />} />
       {gallery.creator ? <div className="mt-8"><CreatorProfileCard creator={gallery.creator} loginNext={gallery.path} /></div> : null}
       <div className="mt-8 flex flex-col items-start text-left">
-        <a href={gallery.eventPhotosHref} className="flex items-center gap-2 text-[16px] font-normal opacity-50">
+        <a href={gallery.eventPhotosHref} onClick={(event) => { event.preventDefault(); returnToPhotoEvent(gallery.eventPhotosHref); }} className="flex items-center gap-2 text-[16px] font-normal opacity-50">
           {gallery.eventCover ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={gallery.eventCover} alt="" className="shrink-0 rounded-[3px] object-cover" style={{ width: 16, height: 16 }} /> : null}
           {gallery.eventName}
         </a>

@@ -17,6 +17,7 @@ import { fetchActivityFeed, type ActivityItem } from "@/lib/activity";
 import { detachPortfolioActivity, isPortfolioName } from "@/lib/creatorPortfolio";
 import { deleteCreatorPhoto, uploadCreatorPhoto } from "@/lib/creatorUpload";
 import { portfolioCardPath } from "@/lib/photoDelivery";
+import { raceDayHasPassed } from "@/lib/races";
 import { createClient } from "@/lib/supabase/client";
 import { Bone, PhotoGridSkeleton } from "@/components/ui/Skeleton";
 
@@ -25,8 +26,9 @@ type RaceRef = { id: string; name: string; slug: string; public_subdomain: strin
 const COLLECTION_LIMIT = 30;
 
 function raceHasEnded(race?: RaceRef) {
-  const end = Date.parse(String(race?.event_end_date || race?.event_date || ""));
-  return Number.isFinite(end) && end <= Date.now();
+  if (!race) return false;
+  const end = Date.parse(String(race.event_end_date || ""));
+  return (Number.isFinite(end) && end <= Date.now()) || raceDayHasPassed(race);
 }
 
 function shortDate(value?: string | null) {

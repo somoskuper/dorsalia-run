@@ -24,9 +24,11 @@ type Props = {
 export default function PageHeader({ fallbackHref = "/", onBack, title, trailingLink, rightAction, saveFormId, onSave, saveDisabled = false, sticky = false, overlayCover = false, gradient = true, hideBack = false, backLabel }: Props) {
   const content = <div className="relative flex w-full items-center justify-between">
     {hideBack ? null : backLabel ? <GlassPanel radius={999} className="shrink-0" style={{ height: 44, width: 136 }} glassProps={{ glassColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.25)", blur: 16, frost: 0, saturation: 130, aberrationIntensity: 0.02 }}>
-      <Link href={fallbackHref} aria-label={backLabel} className="relative z-[1] flex h-11 items-center gap-1 pl-2 pr-2 text-[15px] font-medium" style={{ color: "#ffffff" }}>
+      {onBack ? <button type="button" onClick={onBack} aria-label={backLabel} className="relative z-[1] flex h-11 items-center gap-1 pl-2 pr-2 text-[15px] font-medium text-white">
         {/* eslint-disable-next-line @next/next/no-img-element */}<img src="/assetsdev/Chevron_Right.svg" alt="" className="h-6 w-6" />{backLabel}
-      </Link>
+      </button> : <Link href={fallbackHref} aria-label={backLabel} className="relative z-[1] flex h-11 items-center gap-1 pl-2 pr-2 text-[15px] font-medium" style={{ color: "#ffffff" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}<img src="/assetsdev/Chevron_Right.svg" alt="" className="h-6 w-6" />{backLabel}
+      </Link>}
     </GlassPanel> : <GlassIconButton aria-label="Volver" onClick={onBack || (() => { window.history.length > 1 ? window.history.back() : window.location.assign(fallbackHref); })}>
       {/* eslint-disable-next-line @next/next/no-img-element */}<img src="/assetsdev/Chevron_Right.svg" alt="" />
     </GlassIconButton>}

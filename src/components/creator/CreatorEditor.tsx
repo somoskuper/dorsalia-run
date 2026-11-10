@@ -10,13 +10,14 @@ import SettingsSection from "@/components/settings/SettingsSection";
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
 import { convertImageToWebP } from "@/lib/convertImageToWebP";
 import { portfolioCardOptions, portfolioCardPath } from "@/lib/photoDelivery";
+import { raceDayHasPassed } from "@/lib/races";
 import { createClient } from "@/lib/supabase/client";
 
-type Race = { id: string; name: string; event_date: string | null; event_end_date?: string | null; cover_image_url: string | null; rating_average?: number | null };
+type Race = { id: string; name: string; event_date: string | null; event_end_date?: string | null; cover_image_url: string | null; rating_average?: number | null; timezone?: string | null };
 
-function eventHasEnded(event: Pick<Race, "event_date" | "event_end_date">) {
-  const end = Date.parse(String(event.event_end_date || event.event_date || ""));
-  return Number.isFinite(end) && end <= Date.now();
+function eventHasEnded(event: Pick<Race, "event_date" | "event_end_date" | "timezone">) {
+  const end = Date.parse(String(event.event_end_date || ""));
+  return (Number.isFinite(end) && end <= Date.now()) || raceDayHasPassed(event);
 }
 type Photo = { id: string; image_url: string; storage_path: string; sort_order: number };
 type Slot = { id: string; src: string; file?: File; photo?: Photo };
@@ -78,8 +79,8 @@ export default function CreatorEditor() {
     let active = true;
     const timer = window.setTimeout(() => {
       const now = new Date().toISOString();
-      let query = supabase.from("race_events").select("id,name,event_date,event_end_date,cover_image_url").or(`and(event_end_date.not.is.null,event_end_date.lte.${now}),and(event_end_date.is.null,event_date.lte.${now})`).order("event_date", { ascending: false }).limit(20);
       const term = search.trim();
+      let query = supabase.from("race_events").select("id,name,event_date,event_end_date,cover_image_url,timezone").lte("event_date", now).order("event_date", { ascending: false }).limit(term ? 50 : 30);
       if (term) query = query.ilike("name", `%${term}%`);
       void query.then(({ data }) => { if (active) setEvents(((data || []) as Race[]).filter(eventHasEnded)); });
     }, 250);

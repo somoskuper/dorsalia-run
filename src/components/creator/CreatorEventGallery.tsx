@@ -14,6 +14,7 @@ import { askForAccount } from "@/components/account/AccountPrompt";
 import { createClient } from "@/lib/supabase/client";
 import { PhotoGridSkeleton } from "@/components/ui/Skeleton";
 import ViewedCreatorPost from "@/components/creator/ViewedCreatorPost";
+import { rememberPhotoReturn } from "@/lib/photoNavigation";
 
 type Publication = { id: string; creator_id: string; title: string; description: string; gallery_name: string; purchase_url: string | null; activity_post_id: string | null; published_at: string | null };
 type Photo = { id: string; publication_id: string; image_url: string; sort_order: number };
@@ -103,7 +104,11 @@ export default function CreatorEventGallery({ event }: { event: GalleryEvent }) 
         <div><strong className="text-xl">{reviews.review_count}</strong><span className="mt-1 flex items-center justify-center gap-1 text-xs text-white/60">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/reviews/star.svg" width={12} height={12} alt="" className="brightness-0 invert" />Reseñas</span></div>
       </div>
       <h2 className="mt-8 text-[24px] font-bold">Fotos del evento</h2>
-      <div className="-mx-[15px] mt-4 space-y-8">
+      <div className="-mx-[15px] mt-4 space-y-8" onClickCapture={(click) => {
+        const target = click.target as HTMLElement;
+        const href = target.closest("a")?.getAttribute("href") || "";
+        if (target.closest("[data-post-media]") || href.startsWith(`/fotos/${encodeURIComponent(event.slug)}/`)) rememberPhotoReturn(`/fotos/${encodeURIComponent(event.slug)}`);
+      }}>
         {visible.map((publication) => {
           const item = publication.activity_post_id ? activity[publication.activity_post_id] : undefined;
           const gallery = photos.filter((photo) => photo.publication_id === publication.id).map((photo) => ({ id: photo.id, image_url: photo.image_url, sort_order: photo.sort_order }));
