@@ -21,26 +21,50 @@ function engagement(race: PublicRace): number {
   return (Number(race.view_count) || 0) + (Number(race.save_count) || 0);
 }
 
-export function reviewDirectory(races: PublicRace[], now = Date.now()): PublicRace[] {
+const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+function finishedAt(race: PublicRace): number {
+  const end = Date.parse(String(race.event_end_date || ""));
+  return Number.isFinite(end) ? end : NaN;
+}
+
+function raceAt(race: PublicRace): number {
+  const start = Date.parse(String(race.event_date || ""));
+  if (Number.isFinite(start)) return start;
+  return finishedAt(race);
+}
+
+function byReviews(a: PublicRace, b: PublicRace) {
+  const reviewDiff = (Number(b.review_comment_count) || 0) - (Number(a.review_comment_count) || 0);
+  return reviewDiff || engagement(b) - engagement(a);
+}
+
+/** Carrusel de /review: solo lo finalizado en el último mes. Ironman queda en el puesto 1 durante dos semanas. Lo más viejo pasa a “Más eventos”. */
+export function reviewLists(races: PublicRace[], now = Date.now()): { featured: PublicRace[]; more: PublicRace[] } {
   const lastMonth = new Date(now);
   lastMonth.setMonth(lastMonth.getMonth() - 1);
   const finished = races.filter((race) => {
-    const end = Date.parse(String(race.event_end_date || race.event_date || ""));
+    const end = finishedAt(race);
     return (Number.isFinite(end) && end <= now) || raceDayHasPassed(race, new Date(now));
   });
-  const recent = finished.filter((race) => Date.parse(String(race.event_end_date || race.event_date)) >= lastMonth.getTime());
-  recent.sort((a, b) => {
-    const reviewDiff = (Number(b.review_comment_count) || 0) - (Number(a.review_comment_count) || 0);
-    return reviewDiff || engagement(b) - engagement(a);
+  const recent = finished.filter((race) => {
+    const day = raceAt(race);
+    return Number.isFinite(day) && day <= now && day >= lastMonth.getTime();
   });
-  const featured = recent.slice(0, 5);
-  const featuredIds = new Set(featured.map((race) => race.id));
-  const rest = finished.filter((race) => !featuredIds.has(race.id));
-  rest.sort((a, b) => {
+  const older = finished.filter((race) => !recent.some((raceInMonth) => raceInMonth.id === race.id));
+  recent.sort(byReviews);
+  const ironman = recent.find((race) => isPinnedFinishedEvent(race) && now - raceAt(race) <= TWO_WEEKS_MS);
+  const featured = ironman ? [ironman, ...recent.filter((race) => race.id !== ironman.id)] : recent;
+  older.sort((a, b) => {
     const aRating = reviewRating(a), bRating = reviewRating(b);
     if (aRating && bRating) return bRating - aRating || (Number(b.review_comment_count) || 0) - (Number(a.review_comment_count) || 0);
     if (aRating || bRating) return bRating ? 1 : -1;
     return engagement(b) - engagement(a);
   });
-  return pinFinishedEvents([...featured, ...rest]);
+  return { featured, more: older };
+}
+
+export function reviewDirectory(races: PublicRace[], now = Date.now()): PublicRace[] {
+  const { featured, more } = reviewLists(races, now);
+  return [...featured, ...more];
 }

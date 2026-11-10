@@ -567,14 +567,13 @@ function HomeEventSections({ races, residence, onOpen, photoRail }: { races: Pub
     });
   }, [races, residence]);
   const newest = useMemo(() => races.filter((race) => !isFinalized(race)).sort((a, b) => Date.parse(b.updated_at || "") - Date.parse(a.updated_at || "")), [races]);
-  const recentIds = new Set(recentlyFinished.map((race) => race.id));
-  const finalized = useMemo(() => pinFinishedEvents(races.filter((race) => isFinalized(race) && !recentIds.has(race.id)).sort((a, b) => Date.parse(b.event_date || "") - Date.parse(a.event_date || ""))), [races, recentlyFinished]);
+  const finalized = useMemo(() => pinFinishedEvents(races.filter((race) => isFinalized(race)).sort((a, b) => Date.parse(b.event_date || "") - Date.parse(a.event_date || ""))), [races]);
   const sections: Array<{ id: HomeCollectionId; title: string; items: PublicRace[] }> = [
     { id: "top", title: "Mejores valorados", items: best },
     { id: "recent-finished", title: "Recién finalizados", items: recentlyFinished },
     { id: "near", title: "Próxima semana", items: upcoming },
     { id: "new", title: "Nuevos eventos", items: newest },
-    { id: "finished", title: "Finalizados", items: finalized },
+    { id: "finished", title: "Ver todos los finalizados", items: finalized },
   ];
   return <div className="flex flex-col gap-[60px]">{sections.filter((section) => section.items.length).map((section) => <div key={section.id} className="flex flex-col gap-[60px]"><section aria-labelledby={`home-${section.id}`}><div className="mb-5 flex items-center justify-between gap-2 md:mb-6"><h2 id={`home-${section.id}`} className="min-w-0 text-2xl font-black tracking-[-0.02em] text-white md:text-3xl">{section.title}</h2><a href={HOME_COLLECTION_URLS[section.id]} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white transition hover:text-[#c9f24b] md:hidden" aria-label={`Ver más: ${section.title}`}><AssetIcon name="arrow-circle-right" size={28} /></a><div className="hidden md:block"><Button variant="secondary" href={HOME_COLLECTION_URLS[section.id]} className="shrink-0 whitespace-nowrap text-xs sm:text-sm" aria-label={`Ver más: ${section.title}`}>Ver más</Button></div></div><ProgressiveEventGrid races={section.items} onOpen={onOpen} /></section>{section.id === "top" ? <div className="contents">{photoRail ?? <EventPhotoRail className="" />}</div> : null}</div>)}</div>;
 }
@@ -763,7 +762,7 @@ export default function ExploreView({
   return (
     <>
     {showMobileSearch ? <div className={`px-[17px] pt-4 lg:hidden ${showMobileHome ? "bg-[#0e0e0e]" : "bg-[#070707]"}`}><EventSearchBar races={races} /></div> : null}
-    {showMobileHome ? <div className="lg:hidden"><MobileHome races={ordered} residence={residence} selectedSport={mobileSport || "running"} photoRail={photoRail} /></div> : null}
+    {showMobileHome ? <div className="lg:hidden"><MobileHome races={races} residence={residence} selectedSport={mobileSport || "running"} photoRail={photoRail} /></div> : null}
     {showMobileFeed ? <section className="min-h-screen bg-[#070707] pb-24 lg:hidden">{!authLoading && notificationUser ? <div className="px-[17px] pt-4"><EventSearchBar races={races} /></div> : null}<h1 className="px-[15px] pb-4 pt-5 text-[24px] font-normal text-white">Feed</h1>{authLoading ? <PostSkeleton count={2} /> : notificationUser ? <FollowingFeed userId={notificationUser.id} refreshKey={activityRefresh} /> : <GuestFeedPrompt />}</section> : null}
     {showMobileActivity ? <section className="min-h-screen bg-[#070707] pb-24 pt-5 lg:hidden"><h1 className="px-[15px] pb-4 text-[24px] font-normal text-white">Actividad</h1><SocialNotifications items={notifications} loading={notificationLoading} error={notificationError} signedIn={Boolean(notificationUser)} /></section> : null}
     <div className={`relative min-h-screen bg-[#070707] mp-page-enter ${hideLegacyOnMobile ? "hidden lg:block" : ""}`}>

@@ -8,7 +8,6 @@ import type { PublicRace } from "@/lib/races";
 import OrganizerVerificationBadge from "@/components/OrganizerVerificationBadge";
 import {
   marketplaceEventPath,
-  billboardSlug,
   marketplaceEventUrl,
   cardCoverImage,
   coverImage,
@@ -30,8 +29,8 @@ import { useSavedRaces } from "@/components/SavedRacesProvider";
 import Button from "@/components/ui/Button";
 import GlassPanel from "@/components/ui/GlassPanel";
 import AssetIcon from "@/components/ui/AssetIcon";
-import EventRatingSummary from "@/components/reviews/EventRatingSummary";
 import EventMetrics from "@/components/EventMetrics";
+import EventReviewPanel from "@/components/reviews/EventReviewPanel";
 import PublicGalleryCarousel from "@/components/PublicGalleryCarousel";
 import RichEventText from "@/components/RichEventText";
 import EventCommunityQuestions from "@/components/community/EventCommunityQuestions";
@@ -224,40 +223,9 @@ export default function EventPreview({
   const [shareCopied, setShareCopied] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
   const [aboutExpanded, setAboutExpanded] = useState(false);
-  const eventStartsAt = useMemo(() => Date.parse(String(race.event_date || "")), [race.event_date]);
-  const hasEventStart = Number.isFinite(eventStartsAt);
-  const [eventClock, setEventClock] = useState<number | null>(null);
-  const eventHasStarted = !hasEventStart || (eventClock !== null && eventClock >= eventStartsAt);
-  const eventEndsAt = Date.parse(String(race.event_end_date || race.event_date || ""));
-  const reviewAvailable = Number.isFinite(eventEndsAt) && eventClock !== null && eventClock >= eventEndsAt;
-  const eventCountdown = useMemo(() => {
-    if (!hasEventStart || eventHasStarted || eventClock === null) return null;
-    const totalSeconds = Math.max(0, Math.ceil((eventStartsAt - eventClock) / 1000));
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${days} ${days === 1 ? "día" : "días"} · ${String(hours).padStart(2, "0")} h · ${String(minutes).padStart(2, "0")} min · ${String(seconds).padStart(2, "0")} s`;
-  }, [eventClock, eventHasStarted, eventStartsAt, hasEventStart]);
-
   useEffect(() => {
     setPortalReady(true);
   }, []);
-
-  useEffect(() => {
-    if (!hasEventStart) return;
-    let timer: number | undefined;
-    const tick = () => {
-      const now = Date.now();
-      setEventClock(now);
-      if (now >= eventStartsAt && timer !== undefined) window.clearInterval(timer);
-    };
-    tick();
-    if (Date.now() < eventStartsAt) timer = window.setInterval(tick, 1000);
-    return () => {
-      if (timer !== undefined) window.clearInterval(timer);
-    };
-  }, [eventStartsAt, hasEventStart]);
 
   async function onToggleSave() {
     setPopSave(true);
@@ -663,6 +631,7 @@ export default function EventPreview({
               >
                 {race.name}
               </h1>
+              <EventReviewPanel raceEventId={race.id} returnPath={marketplaceEventPath(race)} />
 
               {orgSlug ? (
                 <Link
@@ -676,13 +645,6 @@ export default function EventPreview({
                   {orgPresented}
                 </p>
               )}
-              <EventRatingSummary
-                average={Number(race.rating_average) || 0}
-                count={Number(race.review_count) || 0}
-                locked={!eventHasStarted}
-                countdown={eventCountdown}
-              />
-              {reviewAvailable ? <Link href={`/review/${encodeURIComponent(billboardSlug(race))}`} className="mt-2 inline-block text-sm font-semibold text-[#c9f24b]">Ver reseñas y calificar ›</Link> : null}
               <EventMetrics raceEventId={race.id} />
             </div>
 
@@ -941,8 +903,6 @@ export default function EventPreview({
         ) : null}
 
         <EventCommunityQuestions raceEventId={race.id} returnPath={marketplaceEventPath(race)} />
-
-        {reviewAvailable ? <Link href={`/review/${encodeURIComponent(billboardSlug(race))}`} className="mt-10 block rounded-2xl border border-white/15 bg-white/[.05] px-5 py-5 text-white hover:border-white/30"><strong className="block text-xl">Reseñas del evento</strong><span className="mt-1 block text-sm text-white/60">Lee las experiencias y califica tu participación ›</span></Link> : null}
 
         <p className="mt-10 max-w-3xl text-[11px] leading-relaxed text-white/45 md:mt-12">
           {indexed ? (

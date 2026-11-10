@@ -42,8 +42,8 @@ export function EventRatingSummary({ data, onRate, locked = false, countdown }: 
   </div>;
 }
 
-export default function EventReviews({ raceEventId, returnPath, data, loading, onReload, standalone = false, showList = true }: {
-  raceEventId: string; returnPath: string; data: EventReviewData; loading: boolean; onReload: () => Promise<void>; standalone?: boolean; showList?: boolean;
+export default function EventReviews({ raceEventId, returnPath, data, loading, onReload, standalone = false, showList = true, hideGuestPrompt = false, hideEmpty = false }: {
+  raceEventId: string; returnPath: string; data: EventReviewData; loading: boolean; onReload: () => Promise<void>; standalone?: boolean; showList?: boolean; hideGuestPrompt?: boolean; hideEmpty?: boolean;
 }) {
   const { user } = useAthleteAuth();
   const [profileSetup, setProfileSetup] = useState<"checking" | "complete" | "required">("checking");
@@ -233,11 +233,11 @@ export default function EventReviews({ raceEventId, returnPath, data, loading, o
     {showFirstEventBadge ? <FirstEventBadgeModal onClose={() => setShowFirstEventBadge(false)} /> : null}
     {editor}
     {!standalone ? <div><h3 className="text-[24px] font-semibold text-white">Comentarios</h3></div> : null}
-    {!user ? <div className="mt-6 px-5 py-6 text-center"><p className="text-[16px] leading-6 text-white/65">Comparte tu experiencia, puntúa el evento y publica tus fotos.</p><button type="button" onClick={() => { trackMetaCreateAccount("event_review", raceEventId); askForAccount("reseñar este evento", returnPath, "review"); }} className="mt-4 h-[52px] rounded-full bg-[#C5E500] px-6 text-[16px] font-bold text-[#070707]">Crear cuenta y reseñar</button></div> : profileSetup === "checking" ? <p className="mt-6 px-5 text-sm text-white/45">Preparando tu perfil…</p> : needsProfileSetup ? <div className="mt-6 bg-white/[0.05] px-5 py-6 text-center"><p className="text-sm leading-relaxed text-white/65">Completa tu perfil y elige tu username antes de publicar.</p><Link href={reviewOnboardingHref} className="mt-4 inline-flex rounded-full bg-[#c9f24b] px-6 py-3 text-sm font-bold" style={{ color: "#0a0a0a" }}>Configurar mi perfil</Link></div> : null}
+    {!user ? (hideGuestPrompt ? null : <div className="mt-6 px-5 py-6 text-center"><p className="text-[16px] leading-6 text-white/65">Comparte tu experiencia, puntúa el evento y publica tus fotos.</p><button type="button" onClick={() => { trackMetaCreateAccount("event_review", raceEventId); askForAccount("reseñar este evento", returnPath, "review"); }} className="mt-4 h-[52px] rounded-full bg-[#C5E500] px-6 text-[16px] font-bold text-[#070707]">Crear cuenta y reseñar</button></div>) : profileSetup === "checking" ? <p className="mt-6 px-5 text-sm text-white/45">Preparando tu perfil…</p> : needsProfileSetup ? <div className="mt-6 bg-white/[0.05] px-5 py-6 text-center"><p className="text-sm leading-relaxed text-white/65">Completa tu perfil y elige tu username antes de publicar.</p><Link href={reviewOnboardingHref} className="mt-4 inline-flex rounded-full bg-[#c9f24b] px-6 py-3 text-sm font-bold" style={{ color: "#0a0a0a" }}>Configurar mi perfil</Link></div> : null}
     {showList ? <div className={standalone ? "mt-6 space-y-4" : "-mx-5 mt-6 space-y-0 md:mx-0"}>
       {loading ? <div className="w-full"><PostSkeleton count={2} media={false} /></div> : data.reviews.length ? data.reviews.slice(0, showAll ? data.reviews.length : 5).map((review) => <div key={review.id} className="w-full">
         <ReviewPost authorName={review.author_name} username={review.author_username} avatarUrl={review.author_avatar_url} profileHref={`/perfil/${review.author_username || review.author_user_id}`} rating={review.rating} comment={review.comment} photos={review.photos} experience={review.experience} updatedAt={review.updated_at} postId={review.activity_post_id} likeCount={Number(review.like_count) || 0} liked={Boolean(review.liked)} commentCount={Number(review.comment_count) || 0} action={review.mine ? <PostMenu onEdit={openEditor} onDelete={deleteReview} /> : null} variant={standalone ? "reviewPage" : "card"} />
-      </div>) : <p className="px-5 text-sm text-white/45">Todavía no hay reseñas. Sé la primera persona en contar cómo estuvo.</p>}
+      </div>) : hideEmpty ? null : <p className="px-5 text-sm text-white/45">Todavía no hay reseñas. Sé la primera persona en contar cómo estuvo.</p>}
     </div> : null}
     {showList && data.reviews.length > 5 ? <div className="mt-5 flex justify-center"><button type="button" onClick={() => setShowAll((value) => !value)} className="rounded-full bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur-xl">{showAll ? "Ver menos" : `Ver más (${data.reviews.length - 5})`}</button></div> : null}
   </section>;

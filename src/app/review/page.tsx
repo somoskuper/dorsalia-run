@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { billboardSlug, coverImage, fetchPublicRaces, type PublicRace } from "@/lib/races";
-import { reviewDirectory, reviewRating } from "@/lib/reviewDirectory";
+import { reviewLists, reviewRating } from "@/lib/reviewDirectory";
 import ReviewGradientLink from "@/components/reviews/ReviewGradientLink";
 import ReviewPageHeader from "@/components/reviews/ReviewPageHeader";
 import ReviewRaceRow from "@/components/reviews/ReviewRaceRow";
@@ -18,13 +18,14 @@ function Rating({ race, large = false }: { race: PublicRace; large?: boolean }) 
 }
 
 export default async function ResenasPage() {
-  const races = reviewDirectory(await fetchPublicRaces({ status: "all" }));
+  const { featured, more } = reviewLists(await fetchPublicRaces({ status: "all" }));
+  const moreShown = more.slice(0, 8);
   return <main className="relative isolate min-h-screen bg-transparent pb-28 text-white">
     <ReviewAmbientBackground />
     <div className="sticky top-0 z-50 mx-auto max-w-5xl px-[15px]"><ReviewPageHeader fallbackHref="/" /></div>
-    {races.length ? <>
-      <div className="mt-9 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollPaddingInline: "calc((100vw - 340px)/2)", paddingInline: "max(15px, calc((100vw - 340px)/2))" }}>
-        {races.slice(0, 6).map((race) => <ReviewGradientLink key={race.id} href={`/review/${encodeURIComponent(billboardSlug(race))}`} imageUrl={coverImage(race)}>
+    {featured.length || more.length ? <>
+      {featured.length ? <div className="mt-9 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollPaddingInline: "calc((100vw - 340px)/2)", paddingInline: "max(15px, calc((100vw - 340px)/2))" }}>
+        {featured.map((race) => <ReviewGradientLink key={race.id} href={`/review/${encodeURIComponent(billboardSlug(race))}`} imageUrl={coverImage(race)}>
           <span className="relative block h-[218px] w-[218px] overflow-hidden rounded-[15px] bg-white/10">{coverImage(race) ? <Image src={coverImage(race)!} alt={`Portada de ${race.name}`} fill sizes="218px" quality={75} className="object-cover" /> : null}</span>
           <strong className="line-clamp-2 min-h-[58px] text-[24px] font-bold leading-tight">{race.name}</strong>
           <span className={`flex items-center gap-1 ${reviewRating(race) ? "" : "opacity-50"}`}>
@@ -34,12 +35,12 @@ export default async function ResenasPage() {
           </span>
           <span className="rounded-[20px] border-2 border-white/15 px-[38px] py-[9px] text-[16px] font-medium">{reviewRating(race) ? "Ver reseñas" : "¡Califica primero!"}</span>
         </ReviewGradientLink>)}
-      </div>
-      <section className="mx-auto mt-12 max-w-3xl px-[15px]"><h2 className="flex items-center gap-[11px] text-[24px] font-medium">
+      </div> : null}
+      {moreShown.length ? <section className="mx-auto mt-12 max-w-3xl px-[15px]"><h2 className="flex items-center gap-[11px] text-[24px] font-medium">
         {/* eslint-disable-next-line @next/next/no-img-element */}<img src="/tapbar/eventos.svg" alt="" width={30} height={30} className="brightness-0 invert" />Más eventos</h2>
-        <div className="mt-5">{races.slice(6, 14).map((race) => <ReviewRaceRow key={race.id} race={race} />)}</div>
-        {races.length > 14 ? <div className="mt-8 flex justify-center"><Link href="/reviews/finalizados" className="rounded-full border border-white/25 bg-white/[0.07] px-6 py-3 text-[16px] text-white backdrop-blur-xl transition hover:bg-white/[0.12]">Ver todos los eventos</Link></div> : null}
-      </section>
+        <div className="mt-5">{moreShown.map((race) => <ReviewRaceRow key={race.id} race={race} />)}</div>
+        {more.length > moreShown.length ? <div className="mt-8 flex justify-center"><Link href="/reviews/finalizados" className="rounded-full border border-white/25 bg-white/[0.07] px-6 py-3 text-[16px] text-white backdrop-blur-xl transition hover:bg-white/[0.12]">Ver todos los eventos</Link></div> : null}
+      </section> : null}
     </> : <p className="mx-auto mt-12 max-w-md px-5 text-center text-white/55">Aún no hay eventos finalizados con ficha de reseñas.</p>}
   </main>;
 }

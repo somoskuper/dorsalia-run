@@ -128,6 +128,12 @@ export default function MobileHome({ races, residence = "", selectedSport = "run
   const pinnedFinished = useMemo(() => reviewDirectory(races).filter(isPinnedFinishedEvent), [races]);
   const finished = useMemo(() => [...pinnedFinished, ...reviewDirectory(sportRaces).filter((race) => !isPinnedFinishedEvent(race))].slice(0, 12), [pinnedFinished, sportRaces]);
   const ranked = useMemo(() => finished.slice(0, 6), [finished]);
+  const newest = useMemo(() => sportRaces.filter((race) => !isFinalized(race)).sort((a, b) => Date.parse(b.updated_at || "") - Date.parse(a.updated_at || "")).slice(0, 12), [sportRaces]);
+  const finalizedCards = useMemo(() => {
+    const pinned = races.filter((race) => isFinalized(race) && isPinnedFinishedEvent(race));
+    const rest = sportRaces.filter((race) => isFinalized(race) && !isPinnedFinishedEvent(race)).sort((a, b) => Date.parse(b.event_date || "") - Date.parse(a.event_date || ""));
+    return [...pinned, ...rest];
+  }, [races, sportRaces]);
   const activeLabel = SPORTS.find((sport) => sport.id === selectedSport)?.label || "Running";
 
   return <div className="min-h-screen bg-[#0e0e0e] pb-24 text-white">
@@ -164,6 +170,14 @@ export default function MobileHome({ races, residence = "", selectedSport = "run
 
     {ranked.length ? <section className="mt-[36px]"><SectionTitle href="/review">Eventos finalizados</SectionTitle>
       <div className="mt-4">{ranked.map((race) => <ReviewRaceRow key={race.id} race={race} className="px-[15px]" />)}</div>
+    </section> : null}
+
+    {newest.length ? <section className="mt-[32px]"><SectionTitle href="/carreras/nuevas">Nuevos eventos</SectionTitle>
+      <div className="flex gap-4 overflow-x-auto overscroll-x-contain px-[17px] pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{newest.map((race) => <WeeklyCard key={race.id} race={race} />)}</div>
+    </section> : null}
+
+    {finalizedCards.length ? <section className="mt-[32px]"><SectionTitle href="/carreras/finalizadas-resultados">Ver todos los finalizados</SectionTitle>
+      <div className="flex gap-4 overflow-x-auto overscroll-x-contain px-[17px] pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{finalizedCards.map((race) => <WeeklyCard key={race.id} race={race} />)}</div>
     </section> : null}
   </div>;
 }

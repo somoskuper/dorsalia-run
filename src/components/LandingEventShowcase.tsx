@@ -1,14 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
-import { EventRatingSummary } from "@/components/reviews/EventReviews";
 import AssetIcon from "@/components/ui/AssetIcon";
-import {
-  EMPTY_EVENT_REVIEWS,
-  fetchEventReviews,
-  type EventReviewData,
-} from "@/lib/eventReviews";
 import { billboardSlug, type PublicRace } from "@/lib/races";
 
 function eventDate(value: string | null) {
@@ -25,7 +19,6 @@ function eventDate(value: string | null) {
 }
 
 export default function LandingEventShowcase({ race }: { race: PublicRace }) {
-  const [reviewData, setReviewData] = useState<EventReviewData>(EMPTY_EVENT_REVIEWS);
   const routes = useMemo(() => (race.routes || []).slice(0, 3), [race.routes]);
   const medals = useMemo(() => {
     const visited = new Set<string>();
@@ -36,16 +29,6 @@ export default function LandingEventShowcase({ race }: { race: PublicRace }) {
       return [{ key: route.key || url, url, label: route.medal_label || route.label || "Modalidad" }];
     });
   }, [routes]);
-  const reload = useCallback(async () => {
-    try {
-      setReviewData(await fetchEventReviews(race.id));
-    } catch {
-      setReviewData(EMPTY_EVENT_REVIEWS);
-    }
-  }, [race.id]);
-
-  useEffect(() => { void reload(); }, [reload]);
-
   const image = "/landing/event-card-social-run.webp";
   const organizerImage = race.organizer_logo_url || race.logo_url || "";
   const organizer = race.organizer_name || "Organizador en Dorsalia";
@@ -81,7 +64,6 @@ export default function LandingEventShowcase({ race }: { race: PublicRace }) {
               ) : null}
               <span className="text-white/60">Presentado por</span><span className="font-bold">{organizer}</span>
             </div>
-            <EventRatingSummary data={reviewData} />
             <div className="mt-8 flex flex-col gap-[5px] text-[17px] leading-snug text-white/90">
               <p className="flex items-center gap-3">
                 <AssetIcon name="calendar" size={33} className="text-white" />

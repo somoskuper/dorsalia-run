@@ -57,7 +57,7 @@ export default function ReviewDetail({ race }: { race: PublicRace }) {
         <div className="h-[260px] w-[260px] overflow-hidden rounded-[15px] bg-white/10">{coverImage(race) ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={coverImage(race)!} alt={`Portada de ${race.name}`} className="h-full w-full object-cover" /> : null}</div>
         <h1 className="mt-4 max-w-[330px] text-[24px] font-bold uppercase leading-tight">{race.name}</h1>
       </div>
-      <div className="mt-5 grid grid-cols-3 border-y border-white/10 py-4 text-center">
+      <div className="mt-4 grid grid-cols-3 border-y border-white/10 py-4 text-center">
         <div className="flex items-center justify-center gap-1">
           <img src="/reviews/ala-review-L.svg" alt="" width={20} height={36} className={rating ? "" : "brightness-0 invert opacity-50"} />
           <span className="flex flex-col items-center"><strong className={`text-[24px] leading-[28px] ${rating ? "" : "text-white/50"}`}>{rating.toFixed(1)}</strong><span className="flex gap-px">{Array.from({ length: 5 }, (_, i) => { const fill = Math.max(0, Math.min(1, rating - i)) * 100; return <span key={i} className="h-[7px] w-[8px]" style={{ clipPath: "polygon(50% 0%, 62% 35%, 100% 38%, 72% 62%, 80% 100%, 50% 78%, 20% 100%, 28% 62%, 0 38%, 38% 35%)", backgroundImage: rating ? `linear-gradient(90deg,#FFD900 0%,#FF8A00 ${fill}%,rgba(255,255,255,.5) ${fill}%,rgba(255,255,255,.5) 100%)` : "linear-gradient(rgba(255,255,255,.5),rgba(255,255,255,.5))" }} />; })}</span></span>
@@ -66,14 +66,14 @@ export default function ReviewDetail({ race }: { race: PublicRace }) {
         <div><strong className="text-xl">{data.count}</strong><span className="mt-1 flex items-center justify-center gap-1 text-xs text-white/60"><img src="/reviews/star.svg" width={12} height={12} alt="" className="brightness-0 invert" />Calificaciones</span></div>
         <div><strong className="text-xl">{data.review_count}</strong><span className="mt-1 flex items-center justify-center gap-1 text-xs text-white/60"><img src="/reviews/star.svg" width={12} height={12} alt="" className="brightness-0 invert" />Reseñas</span></div>
       </div>
-      <CreatorEventPhotosLink eventId={race.id} slug={billboardSlug(race)} />
-      <p className="mt-7 text-[16px]">Califica este evento</p>
+      <p className="mt-5 text-[16px]">Califica este evento</p>
       <div className="mt-5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-[9px]" aria-label="Califica de una a cinco estrellas">{Array.from({ length: 5 }, (_, i) => <button key={i} type="button" onClick={() => void saveRating(i + 1)} disabled={ratingBusy} aria-label={`Calificar ${i + 1} ${i === 0 ? "estrella" : "estrellas"}`} aria-pressed={data.my_rating === i + 1} className="h-[30px] w-[30px] shrink-0 disabled:opacity-50"><img src="/reviews/star.svg" alt="" width={30} height={30} className={`h-[30px] w-[30px] ${i < (data.my_rating || 0) ? "" : "grayscale opacity-50"}`} /></button>)}</div>
         <GlassPanel radius={999} className="shrink-0" style={{ height: 54, width: "fit-content" }} glassProps={{ glassColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.25)", blur: 16, frost: 0, saturation: 130, aberrationIntensity: 0.02 }}><button type="button" onClick={openReviewEditor} className="flex h-full items-center gap-2 px-[15px] text-[16px] text-white">Reseñar<img src="/reviews/resenas-post.svg" alt="" width={24} height={24} /></button></GlassPanel>
       </div>
       {ratingMessage ? <p role="alert" className="mt-3 text-sm text-white/75">{ratingMessage}</p> : null}
-      <div className={`${reviewEditorOpen ? "" : "review-detail-visual"} -mx-[15px]`}><EventReviews raceEventId={race.id} returnPath={`/review/${encodeURIComponent(billboardSlug(race))}`} data={data} loading={loading} onReload={load} standalone /></div>
+      <CreatorEventPhotosLink eventId={race.id} slug={billboardSlug(race)} />
+      {!loading && (user || data.reviews.length > 0) ? <div className={`${reviewEditorOpen ? "" : "review-detail-visual"} -mx-[15px]`}><EventReviews raceEventId={race.id} returnPath={`/review/${encodeURIComponent(billboardSlug(race))}`} data={data} loading={loading} onReload={load} standalone hideGuestPrompt hideEmpty={data.reviews.length === 0} /></div> : null}
       <style jsx global>{`.review-detail-visual #comentarios > div:has(> form) { display: none; }`}</style>
     </div>
     <div className="mx-auto mt-8 flex justify-center px-[15px] pb-10">
