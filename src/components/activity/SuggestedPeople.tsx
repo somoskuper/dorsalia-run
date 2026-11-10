@@ -115,5 +115,5 @@ export function FollowingFeed({ userId, refreshKey }: { userId: string; refreshK
     <SuggestedPeople viewerId={userId} />
     <div className="mt-4"><ActivityFeed userId={userId} refreshKey={refreshKey} emptyText="" /></div>
   </>;
-  return <ActivityFeed followingOnly excludeUserId={userId} refreshKey={refreshKey} emptyText="Las personas que sigues todavía no publican." />;
+  return <ActivityFeed followingOnly refreshKey={refreshKey} emptyText="Las personas que sigues todavía no publican." />;
 }
