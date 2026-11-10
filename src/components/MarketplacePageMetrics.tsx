@@ -71,7 +71,7 @@ export default function MarketplacePageMetrics() {
           <div className="max-w-3xl">
             <h2 id="marketplace-cookie-title" className="text-[23px] font-bold leading-tight sm:text-[19px]">Usamos cookies</h2>
             <p id="marketplace-cookie-description" className="mt-3 text-[14px] leading-[1.55] text-white sm:mt-1 sm:text-[13px]">
-              Usamos el píxel nativo de Kuper y Meta Pixel para medir visitas, fichas de eventos e interacciones como crear una cuenta. Puedes seguir usando Dorsalia sin activarlos. <a href="/cookies" className="underline underline-offset-2">Política de cookies</a>.
+              La visita de una ficha se cuenta al abrirla. Meta Pixel y el resto de la analítica solo se activan si los aceptas. Puedes seguir usando Dorsalia sin activarlos. <a href="/cookies" className="underline underline-offset-2">Política de cookies</a>.
             </p>
           </div>
           <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex">

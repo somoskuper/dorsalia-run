@@ -83,7 +83,6 @@ export default function EventMetrics({ raceEventId, onChange }: { raceEventId: s
   }, [applyMetrics, raceEventId]);
 
   useEffect(() => {
-    if (!analyticsAllowed) return;
     let cancelled = false;
     const registerView = async () => {
       try {
@@ -106,14 +105,14 @@ export default function EventMetrics({ raceEventId, onChange }: { raceEventId: s
     };
     void registerView();
     return () => { cancelled = true; };
-  }, [analyticsAllowed, applyMetrics, raceEventId, refresh]);
+  }, [applyMetrics, raceEventId, refresh]);
 
   useEffect(() => {
-    if (!registered || !user) return;
+    if (!analyticsAllowed || !registered || !user) return;
     void createClient().rpc("identify_public_event_view", {
       p_session_id: getSessionId(), p_url: window.location.href, p_race_event_id: raceEventId,
     });
-  }, [registered, user?.id, raceEventId]);
+  }, [analyticsAllowed, registered, user?.id, raceEventId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {

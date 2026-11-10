@@ -12,11 +12,11 @@ export default function CookiesPage() {
       <h1 className="text-3xl font-extrabold">Política de Cookies</h1>
       <p className="mt-4 text-[var(--muted)] leading-relaxed">
         Este marketplace de Dorsalia usa cookies técnicas necesarias para el funcionamiento del
-        sitio. Solo si aceptas las cookies de analítica, activamos el píxel nativo de Kuper para
-        medir las visitas y el uso de las páginas del dominio principal dorsalia.run. La misma
-        elección permite Meta Pixel para medir páginas vistas, visitas a fichas de eventos e
-        interacciones como pulsar botones para crear una cuenta o contactar. Puedes rechazarlo y seguir utilizando el sitio; en ese caso
-        no cargamos estos píxeles. Tu elección se guarda en tu navegador.
+        sitio. Abrir la ficha de un evento cuenta una visita, aunque no aceptes la analítica y
+        aunque llegues desde Google. Solo si aceptas las cookies de analítica activamos Meta Pixel
+        para medir páginas vistas e interacciones como pulsar botones para crear una cuenta o
+        contactar. Puedes rechazarlo y seguir utilizando el sitio; en ese caso no cargamos ese
+        píxel. Tu elección se guarda en tu navegador.
       </p>
     </div>
   );
