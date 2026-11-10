@@ -92,10 +92,11 @@ export function readPasswordCode(token: string | undefined, userId: string, code
   return { status: "again", token: pack({ ...body, tries }, key) };
 }
 
-export async function sendPasswordCodeEmail(to: string, code: string) {
+export async function sendPasswordCodeEmail(to: string, code: string, purpose: "change" | "reset" = "change") {
   const key = resendKey();
   if (!key) return { ok: false as const, error: "Falta RESEND_API_KEY en el servidor." };
   const from = process.env.RESEND_FROM_EMAIL?.trim() || "Dorsalia <contacto@dorsalia.run>";
+  const lead = purpose === "reset" ? "Usa este código para restablecer tu contraseña en Dorsalia:" : "Usa este código para cambiar tu contraseña en Dorsalia:";
   let response: Response;
   try {
     response = await fetch("https://api.resend.com/emails", {
@@ -104,9 +105,9 @@ export async function sendPasswordCodeEmail(to: string, code: string) {
       body: JSON.stringify({
         from,
         to: [to],
-        subject: "Código para cambiar tu contraseña",
-        text: `Tu código de Dorsalia es ${code}. Caduca en 10 minutos. Si no solicitaste este cambio, ignora este correo.`,
-        html: `<div style="font-family:Roboto,Arial,sans-serif;background:#070707;color:#ffffff;padding:32px"><p style="font-size:16px;line-height:24px">Usa este código para cambiar tu contraseña en Dorsalia:</p><p style="font-size:32px;letter-spacing:8px;font-weight:700">${code}</p><p style="font-size:14px;line-height:22px;color:rgba(255,255,255,.6)">Caduca en 10 minutos. Si no fuiste tú, ignora este correo.</p></div>`,
+        subject: purpose === "reset" ? "Código para restablecer tu contraseña" : "Código para cambiar tu contraseña",
+        text: `${lead} ${code}. Caduca en 10 minutos. Si no solicitaste este cambio, ignora este correo.`,
+        html: `<div style="font-family:Roboto,Arial,sans-serif;background:#070707;color:#ffffff;padding:32px"><p style="font-size:16px;line-height:24px">${lead}</p><p style="font-size:32px;letter-spacing:8px;font-weight:700">${code}</p><p style="font-size:14px;line-height:22px;color:rgba(255,255,255,.6)">Caduca en 10 minutos. Si no fuiste tú, ignora este correo.</p></div>`,
       }),
     });
   } catch {

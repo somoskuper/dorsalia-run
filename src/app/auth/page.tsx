@@ -30,13 +30,17 @@ function AuthForm() {
   const [success, setSuccess] = useState<string | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [pin, setPin] = useState("");
+  const [repeat, setRepeat] = useState("");
+  const [recoveryStep, setRecoveryStep] = useState<"email" | "code">("email");
 
   function selectMode(nextMode: Mode) {
     setError(null);
     setSuccess(null);
     setPassword("");
+    setRepeat("");
     setPin("");
     setPendingEmail(null);
+    setRecoveryStep("email");
     setMode(nextMode);
   }
 
@@ -170,27 +174,73 @@ function AuthForm() {
     }
   }
 
+  function passwordProblem() {
+    if (password.length < 8) return "Usa al menos 8 caracteres.";
+    if (password !== repeat) return "Las contraseñas no coinciden.";
+    if (password === "56484") return "Elige una contraseña distinta a la temporal.";
+    return "";
+  }
+
+  async function sendRecoveryCode() {
+    const response = await fetch("/api/auth/password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+    const body = await response.json().catch(() => null) as { error?: string } | null;
+    if (!response.ok) throw new Error(body?.error || "No pudimos enviar el código.");
+    setPin("");
+    setRecoveryStep("code");
+    setSuccess("Si existe una cuenta con ese correo, te llegará un código de 6 dígitos.");
+  }
+
+  async function resendRecoveryCode() {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await sendRecoveryCode();
+      setSuccess("Te enviamos un código nuevo. Revisa tu correo.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No pudimos enviar el código.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveRecoveredPassword() {
+    const invalid = passwordProblem();
+    if (invalid) throw new Error(invalid);
+    if (!/^\d{6,10}$/.test(pin)) throw new Error("Escribe el código de verificación.");
+    const supabase = createClient();
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: pin,
+      type: "recovery",
+    });
+    if (verifyError) throw new Error("Código incorrecto o vencido. Revísalo o solicita uno nuevo.");
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) throw new Error("No pudimos guardar la contraseña. Inténtalo de nuevo.");
+    const done = await supabase.rpc("athlete_complete_password_setup");
+    if (done.error) throw new Error(done.error.message);
+    navigateAfterAuth(next, (href) => router.replace(href));
+  }
+
   async function onRecovery(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
     setLoading(true);
     try {
-      const supabase = createClient();
-      if (mode === "recover") {
-        const callback = new URL("/auth/callback", window.location.origin);
-        callback.searchParams.set("intent", "recovery");
-        callback.searchParams.set("next", next);
-        const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: callback.toString() });
-        if (error) throw error;
-        setSuccess("Si existe una cuenta con ese correo, te llegará un enlace para cambiar tu contraseña.");
-      } else if (mode === "reset" && canReset) {
-        const { error } = await supabase.auth.updateUser({ password });
+      if (mode === "recover" && recoveryStep === "email") await sendRecoveryCode();
+      else if (mode === "recover") await saveRecoveredPassword();
+      else if (mode === "reset" && canReset) {
+        const { error } = await createClient().auth.updateUser({ password });
         if (error) throw error;
         navigateAfterAuth(next, (href) => router.replace(href));
       }
-    } catch {
-      setError("No pudimos completar la solicitud. Inténtalo de nuevo.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No pudimos completar la solicitud. Inténtalo de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -200,6 +250,15 @@ function AuthForm() {
   const loginView = mode === "login";
   function back() {
     if (pendingEmail) return selectMode("register");
+    if (mode === "recover" && recoveryStep === "code") {
+      setRecoveryStep("email");
+      setPin("");
+      setPassword("");
+      setRepeat("");
+      setError(null);
+      setSuccess(null);
+      return;
+    }
     if (mode === "recover") return selectMode("login");
     if (mode !== "welcome") return selectMode("welcome");
     if (window.history.length > 1) router.back();
@@ -282,6 +341,22 @@ function AuthForm() {
                     <button type="button" disabled={loading} onClick={() => selectMode("register")} className="auth-link">Cambiar correo</button>
                   </div>
                 </form>
+              ) : mode === "recover" && recoveryStep === "code" ? (
+                <form onSubmit={onRecovery} className="auth-fields">
+                  <p className="text-sm text-white/80">Escribe el código que enviamos a <strong className="text-white">{email.trim().toLowerCase()}</strong> y elige tu nueva contraseña.</p>
+                  <Field label="Código de verificación">
+                    <input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 10))} className={inputClass + " text-center tracking-[0.35em]"} />
+                  </Field>
+                  <Field label="Nueva contraseña">
+                    <input required type="password" autoComplete="new-password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} className={inputClass} />
+                  </Field>
+                  <Field label="Confirmar contraseña">
+                    <input required type="password" autoComplete="new-password" minLength={8} value={repeat} onChange={e => setRepeat(e.target.value)} className={inputClass} />
+                  </Field>
+                  <Feedback error={error} success={success} />
+                  <button type="submit" disabled={loading || pin.length < 6} className="auth-submit">{loading ? "Espera…" : "Guardar contraseña"}</button>
+                  <button type="button" disabled={loading} onClick={() => void resendRecoveryCode()} className="auth-link">Reenviar código</button>
+                </form>
               ) : (
                 <form onSubmit={mode === "recover" || mode === "reset" ? onRecovery : onSubmit} className="auth-fields">
                   {mode === "register" && (
@@ -304,7 +379,7 @@ function AuthForm() {
                   )}
                   <Feedback error={error} success={success} />
                   <button type="submit" disabled={loading || (mode === "reset" && !canReset)} className="auth-submit">
-                    {loading ? "Espera…" : mode === "register" ? "Crear cuenta" : mode === "recover" ? "Enviar enlace" : mode === "reset" ? "Guardar contraseña" : "Entrar"}
+                    {loading ? "Espera…" : mode === "register" ? "Crear cuenta" : mode === "recover" ? "Enviar código" : mode === "reset" ? "Guardar contraseña" : "Entrar"}
                   </button>
                 </form>
               )}
