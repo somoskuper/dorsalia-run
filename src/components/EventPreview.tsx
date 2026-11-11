@@ -774,26 +774,26 @@ export default function EventPreview({
             </section>
 
             {medals.length > 0 ? (
-              <section className="mt-10 w-full min-w-0 max-w-xl overflow-hidden">
+              <section className="mt-10 w-full min-w-0 max-w-xl">
                 <h3 className="text-[22px] font-semibold leading-tight text-white">Medallas del evento</h3>
                 {routeMedals.length ? <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.16em] text-white/45">Por modalidad</p> : null}
-                <div className="mt-3 flex flex-wrap gap-4">
+                {routeMedals.length ? <div className="mt-3 flex w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Medallas por modalidad">
                   {routeMedals.map((m) => (
-                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="flex h-[132px] w-[132px] shrink-0 items-center justify-center outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla ${m.alt}`}>
+                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="flex h-[132px] w-[132px] shrink-0 snap-center items-center justify-center outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla ${m.alt}`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={m.url} alt={m.alt} className="h-[112px] w-[112px] object-contain" />
                     </button>
                   ))}
-                </div>
+                </div> : null}
                 {promotionalMedals.length ? <p className="mt-8 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--site-accent,#c9f24b)]">Especiales y patrocinadas</p> : null}
-                <div className="mt-3 flex flex-wrap gap-4">
+                {promotionalMedals.length ? <div className="mt-3 flex w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Medallas especiales y patrocinadas">
                   {promotionalMedals.map((m) => (
-                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="flex h-[132px] w-[132px] shrink-0 items-center justify-center outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla especial ${m.alt}`}>
+                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="flex h-[132px] w-[132px] shrink-0 snap-center items-center justify-center outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla especial ${m.alt}`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={m.url} alt={m.alt} className="h-[112px] w-[112px] object-contain" />
                     </button>
                   ))}
-                </div>
+                </div> : null}
               </section>
             ) : null}
           </div>
