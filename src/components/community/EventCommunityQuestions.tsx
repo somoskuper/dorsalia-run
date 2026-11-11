@@ -120,13 +120,13 @@ export default function EventCommunityQuestions({ raceEventId, returnPath }: { r
       </div>
       <p className="mt-3 whitespace-pre-line text-[16px] leading-6 text-white">{comment.body}</p>
       {comment.mine ? <button type="button" onClick={() => void remove(comment.id)} className="mt-2 text-[13px] text-white/40">Eliminar</button> : null}
-    </li>)}</ul> : null}
+    </li>)}</ul> : <p className="py-4 text-[16px] text-white/50">Todavía no hay comentarios.</p>}
     {message ? <p role="alert" className="mt-3 text-sm text-[#DE5757]">{message}</p> : null}
-    {user ? <form onSubmit={(event) => void publish(event)} className="pt-3">
+    {user ? <form onSubmit={(event) => void publish(event)} className="pt-4">
       <div className="flex items-end gap-2">
-        <textarea value={body} onChange={(event) => setBody(event.target.value.slice(0, 2000))} onKeyDown={onComposerKey} placeholder="Comentar" rows={1} className="max-h-28 min-h-11 flex-1 resize-none rounded-[22px] bg-[#191919] px-4 py-3 text-[16px] text-white outline-none placeholder:text-white/50" />
+        <textarea value={body} onChange={(event) => setBody(event.target.value.slice(0, 2000))} onKeyDown={onComposerKey} placeholder="Comentar" rows={1} className="max-h-28 min-h-11 flex-1 resize-none rounded-[22px] border border-white/40 bg-white/10 px-4 py-3 text-[16px] text-white outline-none placeholder:text-white/50" />
         <button type="submit" disabled={saving || !body.trim()} style={{ color: "#0E0E0E" }} className="shrink-0 rounded-full bg-white px-4 py-3 text-[16px] font-bold disabled:opacity-50">{saving ? "Publicando…" : "Comentar"}</button>
       </div>
-    </form> : <p className="pt-3 text-[16px] text-white/50"><button type="button" onClick={() => askForAccount("comentar", `${loginHref}#preguntas`)} className="text-white underline">Crea una cuenta</button> para comentar.</p>}
+    </form> : <p className="pt-4 text-[16px] text-white/50"><button type="button" onClick={() => askForAccount("comentar", `${loginHref}#preguntas`)} className="text-white underline">Crea una cuenta</button> para comentar.</p>}
   </section>;
 }

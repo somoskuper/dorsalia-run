@@ -34,6 +34,7 @@ import AssetIcon from "@/components/ui/AssetIcon";
 import EventMetrics from "@/components/EventMetrics";
 import EventReviewPanel from "@/components/reviews/EventReviewPanel";
 import EventRecommendations from "@/components/EventRecommendations";
+import EventCommunityQuestions from "@/components/community/EventCommunityQuestions";
 import PublicGalleryCarousel from "@/components/PublicGalleryCarousel";
 import RichEventText from "@/components/RichEventText";
 import SiteFooter from "@/components/SiteFooter";
@@ -923,6 +924,8 @@ export default function EventPreview({
             </div>
           </section>
         ) : null}
+
+        <EventCommunityQuestions raceEventId={race.id} returnPath={marketplaceEventPath(race)} />
 
         <p className="mt-10 max-w-3xl text-[11px] leading-relaxed text-white/45 md:mt-12">
           {indexed ? (
