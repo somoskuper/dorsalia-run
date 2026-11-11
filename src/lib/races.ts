@@ -22,6 +22,9 @@ export type PublicPromotionalMedal = {
   sponsor_logo_url?: string | null;
   destination_url?: string | null;
   sort_order?: number;
+  expires_at?: string | null;
+  max_uses_per_athlete?: number;
+  terms_and_conditions?: string | null;
 };
 
 export type PublicRace = {

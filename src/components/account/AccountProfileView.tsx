@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import GlassIconButton from "@/components/account/GlassIconButton";
 import FullScreenMenu from "@/components/FullScreenMenu";
 import PageHeader from "@/components/PageHeader";
@@ -28,6 +28,17 @@ export type ProfileMedal = {
   imageUrl: string;
   /** false = purchased but event not finished → 50% opacity */
   completed: boolean;
+  awardId?: string;
+  sourceType?: "route" | "promotional" | "platform_badge";
+  description?: string | null;
+  sponsorName?: string | null;
+  expiresAt?: string | null;
+  termsAndConditions?: string | null;
+  maxUses?: number;
+  usesCount?: number;
+  usesRemaining?: number;
+  isRedeemable?: boolean;
+  canRedeem?: boolean;
 };
 
 export type AccountProfileViewProps = {
@@ -72,7 +83,40 @@ export default function AccountProfileView({
   const menuId = useId();
   const [publicTimes, setPublicTimes] = useState<AthletePublicTime[]>([]);
   const [photographer, setPhotographer] = useState(isPhotographer ?? false);
+  const [selectedMedal, setSelectedMedal] = useState<ProfileMedal | null>(null);
+  const [redemptionOverrides, setRedemptionOverrides] = useState<Record<string, Partial<ProfileMedal>>>({});
+  const [redeeming, setRedeeming] = useState(false);
+  const [redemptionMessage, setRedemptionMessage] = useState<string | null>(null);
   const eventPaths = usePublicEventPaths();
+  const openedMedal = useMemo(() => selectedMedal ? { ...selectedMedal, ...(redemptionOverrides[selectedMedal.key] || {}) } : null, [selectedMedal, redemptionOverrides]);
+
+  async function redeemMedal() {
+    if (!openedMedal?.awardId || !openedMedal.canRedeem || redeeming) return;
+    setRedeeming(true);
+    setRedemptionMessage(null);
+    const { data, error } = await createClient().rpc("redeem_promotional_medal", { p_medal_award_id: openedMedal.awardId });
+    if (error) {
+      const message = error.message.includes("MEDAL_EXPIRED")
+        ? "Esta medalla ya venció."
+        : error.message.includes("NO_USES_REMAINING")
+          ? "Ya utilizaste todos los usos disponibles."
+          : "No se pudo registrar el uso. Intenta nuevamente.";
+      setRedemptionMessage(message);
+    } else {
+      const result = data as { uses_count?: number; uses_remaining?: number } | null;
+      const remaining = Number(result?.uses_remaining) || 0;
+      setRedemptionOverrides((current) => ({
+        ...current,
+        [openedMedal.key]: {
+          usesCount: Number(result?.uses_count) || (openedMedal.usesCount || 0) + 1,
+          usesRemaining: remaining,
+          canRedeem: remaining > 0,
+        },
+      }));
+      setRedemptionMessage("Uso registrado correctamente.");
+    }
+    setRedeeming(false);
+  }
 
   useEffect(() => {
     if (!userId) { setPublicTimes([]); return; }
@@ -117,8 +161,8 @@ export default function AccountProfileView({
         <ProfileIdentity displayName={displayName} username={username} avatarUrl={avatarUrl} coverSrc={coverSrc} onAvatarClick={onAvatarClick} readOnly={readOnly} creatorType={photographer ? "photographer" : null} />
         {userId ? <ProfileHighlights userId={userId} reviews={reviews} readOnly={readOnly} publicRatingCount={publicRatingCount} showCreatorPanel={photographer && !readOnly} /> : null}
         {userId && photographer ? <CreatorProfileSections userId={userId} ownProfile={!readOnly} /> : null}
-        <ProfileMedalCard medals={featuredMedals || medals} ownProfile={!readOnly} onOpen={() => setShowAllMedals((value) => !value)} />
-        {showAllMedals && medals.length > 0 ? <section className="mt-5" aria-label="Todas las medallas"><h2 className="text-[20px] font-semibold text-white">Todas las medallas</h2><div className="mt-3 grid grid-cols-3 gap-3">{medals.map((medal) => <div key={medal.key} className="aspect-square rounded-[20px] bg-[#191919] p-3" title={medal.label}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={medal.imageUrl} alt={medal.label} className="h-full w-full object-contain" style={{ opacity: medal.completed ? 1 : 0.5 }} /></div>)}</div></section> : null}
+        <ProfileMedalCard medals={featuredMedals || medals} ownProfile={!readOnly} onOpen={() => setShowAllMedals((value) => !value)} onMedalOpen={(medal) => { setSelectedMedal(medal); setRedemptionMessage(null); }} />
+        {showAllMedals && medals.length > 0 ? <section className="mt-5" aria-label="Tus retos"><h2 className="text-[20px] font-semibold text-white">Tus retos</h2><div className="mt-3 grid grid-cols-3 gap-3">{medals.map((medal) => <button type="button" onClick={() => { setSelectedMedal(medal); setRedemptionMessage(null); }} key={medal.key} className="aspect-square p-2 outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#c9f24b]" title={medal.label}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={medal.imageUrl} alt={medal.label} className="h-full w-full object-contain" style={{ opacity: medal.completed ? 1 : 0.5 }} /></button>)}</div></section> : null}
         {publicTimes.length > 0 ? <section className="mt-6 max-w-2xl" aria-label="Tiempos de corredor"><h2 className="text-sm font-bold uppercase tracking-[0.14em] text-white/55">Mis tiempos</h2><div className="mt-3 space-y-2">{publicTimes.map((item) => <a key={item.id} href={publicEventPath(eventPaths, item.event?.public_subdomain || item.event?.slug)} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 transition hover:border-[#c9f24b]/50">{item.event?.cover_image_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={item.event.cover_image_url} alt="" className="h-12 w-12 rounded-lg object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-lg bg-white/10 text-lg">🏁</span>}<span className="min-w-0 flex-1"><strong className="block truncate text-sm text-white">{item.event?.name || "Evento"}</strong><span className="block truncate text-xs text-white/50">{item.distance || "Carrera"} · {item.category || "General"}{item.bib ? ` · Dorsal ${item.bib}` : ""}</span></span><strong className="shrink-0 text-sm text-[#c9f24b]">{item.chip_time || item.gun_time || "—"}</strong></a>)}</div></section> : null}
         {reviews.length ? <section className="mt-8" aria-label="Carreras calificadas">
           <div className="flex items-center justify-between gap-3"><h2 className="min-w-0 truncate whitespace-nowrap text-xl font-bold text-white">Mis reseñas</h2>{!readOnly ? <a href="/mis-resenas" aria-label="Ver todas mis reseñas" className="grid h-6 w-6 shrink-0 place-items-center">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/profile-highlights/Chevron_Right.svg" alt="" width={16} height={16} /></a> : null}</div>
@@ -132,6 +176,26 @@ export default function AccountProfileView({
       </div>
 
       <section className="mt-10"><h2 className="px-[15px] text-[20px] font-semibold text-white">Actividad</h2><div className="mt-[10px]"><ActivityFeed userId={userId} /></div></section>
+      {openedMedal ? <div className="fixed inset-0 z-[280] flex items-center justify-center p-5" role="dialog" aria-modal="true" aria-label={openedMedal.label}>
+        <button type="button" className="absolute inset-0 bg-black/80 backdrop-blur-lg" onClick={() => setSelectedMedal(null)} aria-label="Cerrar medalla" />
+        <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-[#151515] px-6 py-7 text-center shadow-2xl">
+          <button type="button" onClick={() => setSelectedMedal(null)} className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-xl text-white" aria-label="Cerrar">×</button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}<img src={openedMedal.imageUrl} alt={openedMedal.label} className="mx-auto h-[220px] w-full object-contain" />
+          <h2 className="mt-5 text-2xl font-bold text-white">{openedMedal.label}</h2>
+          {openedMedal.sponsorName ? <p className="mt-1 text-sm font-semibold text-[#c9f24b]">Por {openedMedal.sponsorName}</p> : null}
+          {openedMedal.description ? <p className="mt-3 text-sm leading-relaxed text-white/65">{openedMedal.description}</p> : null}
+          {openedMedal.isRedeemable ? <div className="mt-5 text-left text-sm text-white/65">
+            <p><strong className="text-white">Usos disponibles:</strong> {openedMedal.usesRemaining ?? 0} de {openedMedal.maxUses ?? 0}</p>
+            {openedMedal.expiresAt ? <p className="mt-1"><strong className="text-white">Vence:</strong> {new Intl.DateTimeFormat("es-MX", { dateStyle: "long", timeStyle: "short" }).format(new Date(openedMedal.expiresAt))}</p> : null}
+            {openedMedal.termsAndConditions ? <div className="mt-4 rounded-2xl bg-white/[0.05] p-4"><strong className="text-white">Términos y condiciones</strong><p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed">{openedMedal.termsAndConditions}</p></div> : null}
+          </div> : null}
+          {redemptionMessage ? <p className={`mt-4 text-sm font-semibold ${redemptionMessage.startsWith("Uso registrado") ? "text-[#c9f24b]" : "text-red-300"}`}>{redemptionMessage}</p> : null}
+          {openedMedal.isRedeemable && !readOnly ? <button type="button" onClick={() => void redeemMedal()} disabled={!openedMedal.canRedeem || redeeming} className="mt-5 w-full rounded-2xl bg-[#c9f24b] px-5 py-3.5 text-base font-bold text-black disabled:bg-white/10 disabled:text-white/35">
+            {redeeming ? "Registrando…" : openedMedal.canRedeem ? "Usar" : "Sin usos disponibles"}
+          </button> : null}
+          {openedMedal.canRedeem && !readOnly ? <p className="mt-2 text-xs text-white/40">Al pulsar “Usar” se registrará un consumo.</p> : null}
+        </div>
+      </div> : null}
     </div>
   );
 }

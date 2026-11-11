@@ -61,7 +61,10 @@ export default function PublicAthleteProfilePage() {
     imageUrl: key === "dorsalia-first-event" ? "/assetsdev/primer-evento-dorsalia.webp" : key.replace(/^[0-9a-f-]{36}-/i, ""),
     completed: true,
   })).filter((medal) => medal.imageUrl.startsWith("/") || medal.imageUrl.startsWith("http"));
-  const featuredMedals = ledgerMedals.length ? ledgerMedals : legacyFeaturedMedals;
+  const legacyBadge = legacyFeaturedMedals.filter((medal) => medal.key === "dorsalia-first-event");
+  const featuredMedals = ledgerMedals.length
+    ? [...legacyBadge, ...ledgerMedals.filter((medal) => !legacyBadge.some((badge) => badge.imageUrl === medal.imageUrl))].slice(0, 3)
+    : legacyFeaturedMedals;
 
   return <AccountProfileView
     displayName={profile.display_name}

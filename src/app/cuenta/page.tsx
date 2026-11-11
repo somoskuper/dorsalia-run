@@ -1,6 +1,6 @@
 "use client";
 
-import AccountProfileView from "@/components/account/AccountProfileView";
+import AccountProfileView, { type ProfileMedal } from "@/components/account/AccountProfileView";
 import CouponWallet from "@/components/account/CouponWallet";
 import AccountSubpageHeader from "@/components/account/AccountSubpageHeader";
 import SavedRacesView from "@/components/account/SavedRacesView";
@@ -108,6 +108,15 @@ type MedalAward = {
   image_url: string;
   source_type: "route" | "promotional" | "platform_badge";
   featured_sort_order?: number | null;
+  description?: string | null;
+  sponsor_name?: string | null;
+  expires_at?: string | null;
+  terms_and_conditions?: string | null;
+  max_uses?: number;
+  uses_count?: number;
+  uses_remaining?: number;
+  is_redeemable?: boolean;
+  can_redeem?: boolean;
 };
 
 type TabId = "historial" | "guardados" | "perfil";
@@ -387,13 +396,24 @@ export default function CuentaPage() {
 
   const profileMedals = useMemo(() => {
     if (medalAwards !== null) {
-      const fromLedger = medalAwards
+      const fromLedger: ProfileMedal[] = medalAwards
         .filter((award) => award.id && award.image_url)
         .map((award) => ({
           key: `award:${award.id}`,
           label: award.name || "Medalla conseguida",
           imageUrl: award.image_url,
           completed: true,
+          awardId: award.id,
+          sourceType: award.source_type,
+          description: award.description || null,
+          sponsorName: award.sponsor_name || null,
+          expiresAt: award.expires_at || null,
+          termsAndConditions: award.terms_and_conditions || null,
+          maxUses: Number(award.max_uses) || 0,
+          usesCount: Number(award.uses_count) || 0,
+          usesRemaining: Number(award.uses_remaining) || 0,
+          isRedeemable: award.is_redeemable === true,
+          canRedeem: award.can_redeem === true,
         }));
       if (user?.user_metadata?.dorsalia_first_event_badge === true) {
         fromLedger.unshift({

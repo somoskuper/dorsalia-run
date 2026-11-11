@@ -803,10 +803,9 @@ export default function EventPreview({
                 {promotionalMedals.length ? <p className="mt-8 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--site-accent,#c9f24b)]">Especiales y patrocinadas</p> : null}
                 <div className="mt-3 flex flex-wrap items-end gap-4">
                   {promotionalMedals.map((m) => (
-                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="group relative max-w-[120px] rounded-2xl border border-[var(--site-accent,#c9f24b)]/20 bg-[var(--site-accent,#c9f24b)]/[0.04] p-3 outline-none transition hover:-translate-y-1 hover:border-[var(--site-accent,#c9f24b)]/50 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla especial ${m.alt}`}>
+                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="group relative p-1 outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla especial ${m.alt}`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={m.url} alt={m.alt} className="h-[88px] w-full object-contain" />
-                      <span className="mt-2 block truncate text-center text-[10px] font-semibold text-white/70">{m.sponsor || m.alt}</span>
+                      <img src={m.url} alt={m.alt} className="h-[110px] w-auto object-contain" />
                     </button>
                   ))}
                 </div>
