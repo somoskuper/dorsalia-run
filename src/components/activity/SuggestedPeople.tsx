@@ -29,7 +29,7 @@ export default function SuggestedPeople({ viewerId, onDone }: { viewerId?: strin
   const [people, setPeople] = useState<SuggestedPerson[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
   const [followed, setFollowed] = useState<Set<string>>(() => new Set());
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +46,15 @@ export default function SuggestedPeople({ viewerId, onDone }: { viewerId?: strin
   }, [viewerId]);
 
   async function followOne(userId: string) {
-    if (!userId || userId === viewerId || busy || busyId || followed.has(userId)) return;
-    setBusyId(userId);
+    if (!userId || userId === viewerId || busy || followed.has(userId)) return;
+    setPendingIds((current) => new Set(current).add(userId));
     setError(null);
     const { error: followError } = await createClient().rpc("toggle_follow", { p_target_user_id: userId });
-    setBusyId(null);
+    setPendingIds((current) => {
+      const next = new Set(current);
+      next.delete(userId);
+      return next;
+    });
     if (followError) {
       setError("No pudimos seguir a esta persona. Puedes intentarlo de nuevo o continuar.");
       return;
@@ -82,8 +86,11 @@ export default function SuggestedPeople({ viewerId, onDone }: { viewerId?: strin
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 px-[15px] py-2">
-        <h2 className="text-[16px] font-semibold text-white">Sugeridos</h2>
+      <div className="px-[15px] pb-2">
+        <h2 className="text-[20px] font-semibold text-white">Sugerencia de seguidores</h2>
+        <p className="mt-1 text-[14px] leading-5 text-white/55">Sigue a quien quieras, uno por uno. También puedes continuar sin seguir a nadie.</p>
+      </div>
+      <div className="flex items-center justify-end px-[15px] py-2">
         <button type="button" disabled={loading || busy || done || !people.length} onClick={() => void followAll()} className="h-9 shrink-0 rounded-full bg-[#C5E500] px-4 text-[14px] font-bold disabled:opacity-50" style={{ color: "#070707" }}>
           {busy ? "Siguiendo…" : done ? "Siguiendo" : "Seguir a todos"}
         </button>
@@ -101,14 +108,14 @@ export default function SuggestedPeople({ viewerId, onDone }: { viewerId?: strin
                 <span className="block min-w-0 truncate text-[20px] font-normal leading-6 text-white">{person.displayName}</span>
                 <span className="truncate text-[10px] leading-3 text-white/50">{detail(person)}</span>
               </span>
-              <button type="button" onClick={() => void followOne(person.userId)} disabled={followingPerson || busy || busyId === person.userId} className="h-9 shrink-0 rounded-full bg-[#C5E500] px-4 text-[14px] font-bold disabled:opacity-50" style={{ color: "#070707" }}>
-                {busyId === person.userId ? "…" : followingPerson ? "Siguiendo" : "Seguir"}
+              <button type="button" onClick={() => void followOne(person.userId)} disabled={followingPerson || busy || pendingIds.has(person.userId)} className="h-9 shrink-0 rounded-full bg-[#C5E500] px-4 text-[14px] font-bold disabled:opacity-50" style={{ color: "#070707" }}>
+                {pendingIds.has(person.userId) ? "…" : followingPerson ? "Siguiendo" : "Seguir"}
               </button>
             </div>;
           })}
         </div>
       ) : <p className="px-[15px] py-10 text-center text-sm text-white/45">Todavía no hay personas para sugerir.</p>}
-      {onDone ? <button type="button" onClick={onDone} className="mx-[15px] mt-6 flex h-12 w-[calc(100%-30px)] items-center justify-center rounded-full bg-white text-[16px] font-bold" style={{ color: "#070707" }}>Continuar</button> : null}
+      {onDone ? <div className="sticky bottom-0 z-20 mt-6 bg-[#070707]/95 px-[15px] py-4 backdrop-blur"><button type="button" onClick={onDone} className="flex h-12 w-full items-center justify-center rounded-full bg-white text-[16px] font-bold" style={{ color: "#070707" }}>Continuar</button></div> : null}
     </div>
   );
 }

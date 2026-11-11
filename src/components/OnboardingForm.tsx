@@ -162,17 +162,7 @@ export function OnboardingForm() {
       setError(profileError.message);
       return;
     }
-    setSaving(false);
     suggestingRef.current = true;
-    setSuggesting(true);
-  }
-
-  async function finish() {
-    if (!user) return;
-    setError(null);
-    setSaving(true);
-    const supabase = createClient();
-    const normalizedUsername = normalizeUsername(username);
     const { error: metaError } = await supabase.auth.updateUser({
       data: {
         athlete_onboarding_done: true,
@@ -186,9 +176,17 @@ export function OnboardingForm() {
     });
     setSaving(false);
     if (metaError) {
+      suggestingRef.current = false;
       setError(metaError.message);
       return;
     }
+    ownedUsername.current = normalizedUsername;
+    setSuggesting(true);
+  }
+
+  async function finish() {
+    if (!user) return;
+    setError(null);
     await refresh();
     navigateAfterAuth(next, (href) => router.replace(href));
   }
