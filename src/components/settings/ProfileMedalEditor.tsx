@@ -61,14 +61,31 @@ export default function ProfileMedalEditor() {
         }
       }
       setMedals(all);
+      const stored = Array.isArray(saved) ? saved.map(String) : [];
       if (awardRows) {
+        const picked: string[] = [];
+        for (const key of stored) {
+          if (key === "dorsalia-first-event" && all.some((medal) => medal.key === key)) {
+            picked.push(key);
+            continue;
+          }
+          if (key.startsWith("award:") && all.some((medal) => medal.key === key)) {
+            picked.push(key);
+            continue;
+          }
+          const award = awardRows.find((item) => key.startsWith(item.id));
+          if (award && all.some((medal) => medal.key === `award:${award.id}`)) picked.push(`award:${award.id}`);
+        }
         const featured = [...awardRows]
           .filter((award) => award.featured_sort_order != null)
           .sort((a, b) => Number(a.featured_sort_order) - Number(b.featured_sort_order))
           .map((award) => `award:${award.id}`);
-        setSelected(featured.slice(0, 3));
+        for (const key of featured) {
+          if (!picked.includes(key)) picked.push(key);
+        }
+        setSelected(picked.filter((key, index) => picked.indexOf(key) === index).slice(0, 3));
       } else {
-        setSelected(Array.isArray(saved) ? saved.map(String).filter((key) => all.some((medal) => medal.key === key)).slice(0, 3) : all.slice(0, 3).map((medal) => medal.key));
+        setSelected(stored.filter((key) => all.some((medal) => medal.key === key)).slice(0, 3));
       }
       setReady(true);
     });
@@ -91,7 +108,7 @@ export default function ProfileMedalEditor() {
       const selectedAwards = selected.filter((key) => key.startsWith("award:")).map((key) => key.slice(6));
       if (usesAwardLedger) {
         const { error: featuredError } = await supabase.rpc("set_athlete_featured_medals", { p_medal_ids: selectedAwards });
-        if (featuredError) throw featuredError;
+        if (featuredError && selectedAwards.length > 0) throw featuredError;
       }
       const byKey = new Map(medals.map((medal) => [medal.key, medal]));
       const legacyKeys = selected.map((key) => {
@@ -100,7 +117,9 @@ export default function ProfileMedalEditor() {
         const awardId = key.startsWith("award:") ? key.slice(6) : null;
         return awardId && medal ? `${awardId}-${medal.imageUrl}` : key;
       });
-      const { error: saveError } = await supabase.from("athlete_profiles").upsert({ ...(existing || {}), user_id: user.id, featured_medal_keys: legacyKeys, updated_at: new Date().toISOString() });
+      const { error: saveError } = existing
+        ? await supabase.from("athlete_profiles").update({ featured_medal_keys: legacyKeys, updated_at: new Date().toISOString() }).eq("user_id", user.id)
+        : await supabase.from("athlete_profiles").upsert({ user_id: user.id, featured_medal_keys: legacyKeys, updated_at: new Date().toISOString() });
       if (saveError) throw saveError;
       const { error: authError } = await supabase.auth.updateUser({ data: { featured_medal_keys: legacyKeys } });
       if (authError) throw authError;

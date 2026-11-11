@@ -38,11 +38,22 @@ export default function PublicAthleteProfilePage() {
         ]);
         setRatingCount(Number(count) || 0);
         setPhotographer(creator?.creator_type === "photographer" && creator.is_active === true);
-        setLedgerMedals((Array.isArray(featuredAwards) ? featuredAwards : []).map((award: { id?: string; name?: string; image_url?: string }) => ({
+        setLedgerMedals((Array.isArray(featuredAwards) ? featuredAwards : []).map((award: { id?: string; name?: string; image_url?: string; description?: string | null; sponsor_name?: string | null; source_type?: ProfileMedal["sourceType"]; expires_at?: string | null; terms_and_conditions?: string | null; max_uses?: number; uses_count?: number; uses_remaining?: number; is_redeemable?: boolean; can_redeem?: boolean }) => ({
           key: `award:${String(award.id || "")}`,
           label: String(award.name || "Medalla conseguida"),
           imageUrl: String(award.image_url || ""),
           completed: true,
+          awardId: award.id ? String(award.id) : undefined,
+          sourceType: award.source_type,
+          description: award.description || null,
+          sponsorName: award.sponsor_name || null,
+          expiresAt: award.expires_at || null,
+          termsAndConditions: award.terms_and_conditions || null,
+          maxUses: Number(award.max_uses) || 0,
+          usesCount: Number(award.uses_count) || 0,
+          usesRemaining: Number(award.uses_remaining) || 0,
+          isRedeemable: award.is_redeemable === true,
+          canRedeem: award.can_redeem === true,
         })).filter((medal) => medal.imageUrl.startsWith("/") || medal.imageUrl.startsWith("http")));
       }
       setLoading(false);

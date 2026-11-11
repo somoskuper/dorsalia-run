@@ -26,6 +26,7 @@ import {
 } from "@/lib/races";
 import { formatDistance, routeTrace, type PublicEventRoute } from "@/lib/routeMap";
 import GlassIconButton from "@/components/account/GlassIconButton";
+import MedalSheet from "@/components/account/MedalSheet";
 import { useSavedRaces } from "@/components/SavedRacesProvider";
 import Button from "@/components/ui/Button";
 import GlassPanel from "@/components/ui/GlassPanel";
@@ -83,30 +84,14 @@ type MedalPreview = {
 
 function MedalLightbox({ medal, onClose }: { medal: MedalPreview; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[260] flex items-center justify-center p-5 sm:p-8" role="dialog" aria-modal="true" aria-label={`Vista de ${medal.alt}`}>
-      <button type="button" className="absolute inset-0 bg-black/75 backdrop-blur-xl" aria-label="Cerrar vista de medalla" onClick={onClose} />
-      <div className="relative z-10 flex w-full max-w-md flex-col items-center rounded-[32px] border border-white/15 bg-[#121212]/90 px-7 py-8 text-center shadow-[0_30px_120px_rgba(0,0,0,0.8)] sm:px-10">
-        <button type="button" onClick={onClose} className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20" aria-label="Cerrar">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 2l12 12M14 2 2 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-        </button>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--site-accent,#c9f24b)]">{medal.kind === "promotional" ? "Medalla especial" : "Medalla de modalidad"}</p>
-        <div className="mt-5 grid h-[min(56vw,280px)] w-[min(56vw,280px)] place-items-center [perspective:1000px]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={medal.url} alt={medal.alt} className="max-h-full max-w-full object-contain [animation:medal-3d-spin_4s_ease-in-out_infinite] [transform-style:preserve-3d]" />
-        </div>
-        <h2 className="mt-12 text-2xl font-bold text-white sm:text-3xl">{medal.alt}</h2>
-        {medal.sponsor ? <p className="mt-2 text-sm font-semibold text-[var(--site-accent,#c9f24b)]">Presentada por {medal.sponsor}</p> : null}
-        {medal.description ? <p className="mt-2 text-sm leading-relaxed text-white/65">{medal.description}</p> : null}
-        {medal.destinationUrl ? <a href={medal.destinationUrl} target="_blank" rel="noopener noreferrer sponsored" className="mt-5 rounded-full bg-[var(--site-accent,#c9f24b)] px-5 py-2.5 text-sm font-bold text-black">Conocer patrocinador</a> : null}
-        {!medal.destinationUrl && !medal.description ? <p className="mt-2 text-sm text-white/55">Toca fuera de esta ficha para cerrar</p> : null}
-      </div>
-      <style jsx global>{`
-        @keyframes medal-3d-spin {
-          0%, 100% { transform: rotateY(-35deg) rotateX(3deg) scale(1); }
-          50% { transform: rotateY(35deg) rotateX(-3deg) scale(1.02); }
-        }
-      `}</style>
-    </div>
+    <MedalSheet
+      title={medal.alt}
+      imageUrl={medal.url}
+      eyebrow={medal.kind === "promotional" ? "Medalla especial" : "Medalla de modalidad"}
+      description={medal.description}
+      destinationUrl={medal.destinationUrl}
+      onClose={onClose}
+    />
   );
 }
 

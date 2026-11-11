@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import ProfileIdentity from "@/components/account/ProfileIdentity";
 import ProfileHighlights from "@/components/account/ProfileHighlights";
 import ProfileMedalCard from "@/components/account/ProfileMedalCard";
+import MedalSheet from "@/components/account/MedalSheet";
 import ActivityFeed from "@/components/activity/ActivityFeed";
 import CreatorProfileSections from "@/components/creator/CreatorProfileSections";
 import { createClient } from "@/lib/supabase/client";
@@ -176,26 +177,23 @@ export default function AccountProfileView({
       </div>
 
       <section className="mt-10"><h2 className="px-[15px] text-[20px] font-semibold text-white">Actividad</h2><div className="mt-[10px]"><ActivityFeed userId={userId} /></div></section>
-      {openedMedal ? <div className="fixed inset-0 z-[280] flex items-center justify-center p-5" role="dialog" aria-modal="true" aria-label={openedMedal.label}>
-        <button type="button" className="absolute inset-0 bg-black/80 backdrop-blur-lg" onClick={() => setSelectedMedal(null)} aria-label="Cerrar medalla" />
-        <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-[#151515] px-6 py-7 text-center shadow-2xl">
-          <button type="button" onClick={() => setSelectedMedal(null)} className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-xl text-white" aria-label="Cerrar">×</button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}<img src={openedMedal.imageUrl} alt={openedMedal.label} className="mx-auto h-[220px] w-full object-contain" />
-          <h2 className="mt-5 text-2xl font-bold text-white">{openedMedal.label}</h2>
-          {openedMedal.sponsorName ? <p className="mt-1 text-sm font-semibold text-[#c9f24b]">Por {openedMedal.sponsorName}</p> : null}
-          {openedMedal.description ? <p className="mt-3 text-sm leading-relaxed text-white/65">{openedMedal.description}</p> : null}
-          {openedMedal.isRedeemable ? <div className="mt-5 text-left text-sm text-white/65">
-            <p><strong className="text-white">Usos disponibles:</strong> {openedMedal.usesRemaining ?? 0} de {openedMedal.maxUses ?? 0}</p>
-            {openedMedal.expiresAt ? <p className="mt-1"><strong className="text-white">Vence:</strong> {new Intl.DateTimeFormat("es-MX", { dateStyle: "long", timeStyle: "short" }).format(new Date(openedMedal.expiresAt))}</p> : null}
-            {openedMedal.termsAndConditions ? <div className="mt-4 rounded-2xl bg-white/[0.05] p-4"><strong className="text-white">Términos y condiciones</strong><p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed">{openedMedal.termsAndConditions}</p></div> : null}
-          </div> : null}
-          {redemptionMessage ? <p className={`mt-4 text-sm font-semibold ${redemptionMessage.startsWith("Uso registrado") ? "text-[#c9f24b]" : "text-red-300"}`}>{redemptionMessage}</p> : null}
-          {openedMedal.isRedeemable && !readOnly ? <button type="button" onClick={() => void redeemMedal()} disabled={!openedMedal.canRedeem || redeeming} className="mt-5 w-full rounded-2xl bg-[#c9f24b] px-5 py-3.5 text-base font-bold text-black disabled:bg-white/10 disabled:text-white/35">
-            {redeeming ? "Registrando…" : openedMedal.canRedeem ? "Usar" : "Sin usos disponibles"}
-          </button> : null}
-          {openedMedal.canRedeem && !readOnly ? <p className="mt-2 text-xs text-white/40">Al pulsar “Usar” se registrará un consumo.</p> : null}
-        </div>
-      </div> : null}
+      {openedMedal ? <MedalSheet
+        title={openedMedal.label}
+        imageUrl={openedMedal.imageUrl}
+        eyebrow={openedMedal.sourceType === "promotional" ? "Medalla especial" : openedMedal.sourceType === "route" ? "Medalla de modalidad" : openedMedal.key === "dorsalia-first-event" ? "Medalla Dorsalia" : "Medalla"}
+        description={openedMedal.description}
+        onClose={() => setSelectedMedal(null)}
+        redemption={openedMedal.isRedeemable && !readOnly ? {
+          usesRemaining: openedMedal.usesRemaining ?? 0,
+          maxUses: openedMedal.maxUses ?? 0,
+          expiresAt: openedMedal.expiresAt,
+          termsAndConditions: openedMedal.termsAndConditions,
+          canRedeem: openedMedal.canRedeem === true,
+          busy: redeeming,
+          message: redemptionMessage,
+          onRedeem: () => void redeemMedal(),
+        } : null}
+      /> : null}
     </div>
   );
 }

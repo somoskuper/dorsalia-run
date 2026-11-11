@@ -421,6 +421,7 @@ export default function CuentaPage() {
           label: "Primer evento en Dorsalia",
           imageUrl: "/assetsdev/primer-evento-dorsalia.webp",
           completed: true,
+          sourceType: "platform_badge",
         });
       }
       return fromLedger;
@@ -502,11 +503,32 @@ export default function CuentaPage() {
 
   const featuredMedalKeys = useMemo(() => {
     if (medalAwards !== null) {
-      return [...medalAwards]
+      const stored = Array.isArray(profile?.featured_medal_keys)
+        ? profile.featured_medal_keys.map(String)
+        : Array.isArray(user?.user_metadata?.featured_medal_keys)
+          ? user.user_metadata.featured_medal_keys.map(String)
+          : [];
+      const awardKeys = [...medalAwards]
         .filter((award) => award.featured_sort_order != null)
         .sort((a, b) => Number(a.featured_sort_order) - Number(b.featured_sort_order))
-        .map((award) => `award:${award.id}`)
-        .slice(0, 3);
+        .map((award) => `award:${award.id}`);
+      const resolved: string[] = [];
+      for (const key of stored) {
+        if (key === "dorsalia-first-event") {
+          resolved.push(key);
+          continue;
+        }
+        if (key.startsWith("award:") && medalAwards.some((award) => `award:${award.id}` === key)) {
+          resolved.push(key);
+          continue;
+        }
+        const award = medalAwards.find((item) => key.startsWith(item.id));
+        if (award) resolved.push(`award:${award.id}`);
+      }
+      for (const key of awardKeys) {
+        if (!resolved.includes(key)) resolved.push(key);
+      }
+      return resolved.filter((key, index) => resolved.indexOf(key) === index).slice(0, 3);
     }
     const fromProfile = profile?.featured_medal_keys;
     const storedKeys = Array.isArray(fromProfile)
