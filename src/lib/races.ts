@@ -301,6 +301,16 @@ function calendarDay(date: Date, timeZone: string) {
   }
 }
 
+/** Reviews open after the published end, or after the race day when there is no end. */
+export function eventHasFinished(
+  race: { event_date?: string | null; event_end_date?: string | null; timezone?: string | null },
+  now = new Date(),
+): boolean {
+  const end = Date.parse(String(race.event_end_date || ""));
+  if (Number.isFinite(end)) return end <= now.getTime();
+  return raceDayHasPassed(race, now);
+}
+
 /** The published race day is already over in the event's timezone. */
 export function raceDayHasPassed(race: { event_date?: string | null; timezone?: string | null }, now = new Date()): boolean {
   if (!race.event_date) return false;

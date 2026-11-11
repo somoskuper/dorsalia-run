@@ -15,6 +15,7 @@ import {
   flyerImage,
   formatDateTime,
   isEventFree,
+  eventHasFinished,
   isFinalized,
   organizerImage,
   organizerLabel,
@@ -31,9 +32,9 @@ import GlassPanel from "@/components/ui/GlassPanel";
 import AssetIcon from "@/components/ui/AssetIcon";
 import EventMetrics from "@/components/EventMetrics";
 import EventReviewPanel from "@/components/reviews/EventReviewPanel";
+import EventRecommendations from "@/components/EventRecommendations";
 import PublicGalleryCarousel from "@/components/PublicGalleryCarousel";
 import RichEventText from "@/components/RichEventText";
-import EventCommunityQuestions from "@/components/community/EventCommunityQuestions";
 import SiteFooter from "@/components/SiteFooter";
 import { downloadCalendarIcs } from "@/lib/calendar";
 import TimedResultsSearch from "@/components/TimedResultsSearch";
@@ -100,10 +101,12 @@ function MedalLightbox({ medal, onClose }: { medal: MedalPreview; onClose: () =>
 
 export default function EventPreview({
   race,
+  relatedRaces = [],
   onClose,
   standalone = false,
 }: {
   race: PublicRace;
+  relatedRaces?: PublicRace[];
   onClose?: () => void;
   standalone?: boolean;
 }) {
@@ -631,7 +634,7 @@ export default function EventPreview({
               >
                 {race.name}
               </h1>
-              <EventReviewPanel raceEventId={race.id} returnPath={marketplaceEventPath(race)} />
+              {eventHasFinished(race) ? <EventReviewPanel raceEventId={race.id} returnPath={marketplaceEventPath(race)} /> : null}
 
               {orgSlug ? (
                 <Link
@@ -902,8 +905,6 @@ export default function EventPreview({
           </section>
         ) : null}
 
-        <EventCommunityQuestions raceEventId={race.id} returnPath={marketplaceEventPath(race)} />
-
         <p className="mt-10 max-w-3xl text-[11px] leading-relaxed text-white/45 md:mt-12">
           {indexed ? (
             <>
@@ -977,6 +978,7 @@ export default function EventPreview({
           </a>
         ) : null}
         </div>
+        {standalone ? <EventRecommendations races={relatedRaces} /> : null}
         {standalone ? <SiteFooter /> : null}
       </div>
 

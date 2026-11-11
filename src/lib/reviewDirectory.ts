@@ -1,4 +1,4 @@
-import { raceDayHasPassed, type PublicRace } from "@/lib/races";
+import { eventHasFinished, type PublicRace } from "@/lib/races";
 
 const PINNED_FINISHED_SLUGS = ["ironman-70-3-campeche"];
 
@@ -43,10 +43,7 @@ function byReviews(a: PublicRace, b: PublicRace) {
 export function reviewLists(races: PublicRace[], now = Date.now()): { featured: PublicRace[]; more: PublicRace[] } {
   const lastMonth = new Date(now);
   lastMonth.setMonth(lastMonth.getMonth() - 1);
-  const finished = races.filter((race) => {
-    const end = finishedAt(race);
-    return (Number.isFinite(end) && end <= now) || raceDayHasPassed(race, new Date(now));
-  });
+  const finished = races.filter((race) => eventHasFinished(race, new Date(now)));
   const recent = finished.filter((race) => {
     const day = raceAt(race);
     return Number.isFinite(day) && day <= now && day >= lastMonth.getTime();

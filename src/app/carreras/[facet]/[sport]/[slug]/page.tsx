@@ -4,7 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import EventPreview from "@/components/EventPreview";
 import {
   billboardSlug, cardCoverImage, coverImage, eventLocationSlug, facetSlug,
-  fetchPublicRaceBySlug, isEventFree, isFinalized, marketplaceEventUrl,
+  fetchPublicRaceBySlug, fetchPublicRaces, isEventFree, isFinalized, marketplaceEventUrl,
   minPrice, organizerSlugFrom, placeLabel, seoDescription, sportCategory,
   sportCategoryLabel,
 } from "@/lib/races";
@@ -77,6 +77,11 @@ export default async function EventPage({ params }: Props) {
   const canonical = marketplaceEventUrl(race);
   if (facetSlug(location) !== eventLocationSlug(race) || facetSlug(sport) !== sportCategory(race) || facetSlug(slug) !== facetSlug(billboardSlug(race))) permanentRedirect(canonical);
 
+  const relatedRaces = (await fetchPublicRaces({ status: "all" }))
+    .filter((candidate) => candidate.id !== race.id && candidate.is_published && candidate.robots_index !== false && !isFinalized(candidate))
+    .sort((a, b) => Date.parse(b.updated_at || "") - Date.parse(a.updated_at || ""))
+    .slice(0, 8);
+
   const image = cardCoverImage(race) || coverImage(race);
   const organizerSlug = organizerSlugFrom(race);
   const organizerUrl = organizerSlug ? `https://dorsalia.run/org/${encodeURIComponent(organizerSlug)}` : absoluteHttpUrl(race.organizer_site_url || race.site_url);
@@ -117,6 +122,6 @@ export default async function EventPage({ params }: Props) {
       <Link href={`/carreras/${eventLocationSlug(race)}`}>{locationLabel}</Link><span>/</span>
       <Link href={`/carreras/${sportCategory(race)}`}>{sportCategoryLabel(race)}</Link><span>/</span><span className="text-white/80">{race.name}</span>
     </nav>
-    <EventPreview race={race} standalone />
+    <EventPreview race={race} relatedRaces={relatedRaces} standalone />
   </>;
 }

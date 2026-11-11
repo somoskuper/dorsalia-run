@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AssetIcon from "@/components/ui/AssetIcon";
@@ -40,7 +40,7 @@ function shortDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short" }).format(date).replace(".", "");
 }
 
-export default function EventSearchBar({ races = [], placeholder = "Buscar eventos", className = "" }: { races?: PublicRace[]; placeholder?: string; className?: string }) {
+export default function EventSearchBar({ races = [], placeholder = "Buscar eventos", className = "", filtersExtra }: { races?: PublicRace[]; placeholder?: string; className?: string; filtersExtra?: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -108,11 +108,11 @@ export default function EventSearchBar({ races = [], placeholder = "Buscar event
       </button>)}
       <button type="button" onClick={() => apply({ ...EMPTY_SEARCH_FILTERS, q: filters.q })} className="h-8 shrink-0 px-2 text-[13px] text-white/50">Limpiar</button>
     </div> : null}
-    {open ? <EventFiltersSheet races={races} filters={filters} onApply={(next) => { apply({ ...next, q: value.trim() }); setOpen(false); }} onClose={() => setOpen(false)} /> : null}
+    {open ? <EventFiltersSheet races={races} filters={filters} filtersExtra={filtersExtra} onApply={(next) => { apply({ ...next, q: value.trim() }); setOpen(false); }} onClose={() => setOpen(false)} /> : null}
   </div>;
 }
 
-function EventFiltersSheet({ races, filters, onApply, onClose }: { races: PublicRace[]; filters: RaceSearchFilters; onApply: (next: RaceSearchFilters) => void; onClose: () => void }) {
+function EventFiltersSheet({ races, filters, filtersExtra, onApply, onClose }: { races: PublicRace[]; filters: RaceSearchFilters; filtersExtra?: ReactNode; onApply: (next: RaceSearchFilters) => void; onClose: () => void }) {
   const [draft, setDraft] = useState<RaceSearchFilters>(filters);
   const cities = useMemo(() => uniqueCities(races), [races]);
   const count = useMemo(() => races.length ? filterRaces(races, draft).length : null, [races, draft]);
@@ -164,6 +164,7 @@ function EventFiltersSheet({ races, filters, onApply, onClose }: { races: Public
             <label className="block"><span className="mb-1 block text-[13px] text-white/50">Hasta</span><input type="date" value={draft.dateTo} min={draft.dateFrom || undefined} onChange={(event) => set({ dateTo: event.target.value })} className="h-11 w-full rounded-[20px] bg-[#191919] px-[15px] text-[15px] text-white outline-none [color-scheme:dark]" /></label>
           </div>
         </section>
+        {filtersExtra}
         <section className="mt-[30px]">
           <h3 className="text-[16px] font-semibold">Precio</h3>
           <div className="mt-[10px] flex flex-wrap gap-2">
