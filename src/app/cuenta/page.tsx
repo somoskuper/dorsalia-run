@@ -115,6 +115,7 @@ type MedalAward = {
   max_uses?: number;
   uses_count?: number;
   uses_remaining?: number;
+  unlimited_redemptions?: boolean;
   is_redeemable?: boolean;
   can_redeem?: boolean;
 };
@@ -412,6 +413,7 @@ export default function CuentaPage() {
           maxUses: Number(award.max_uses) || 0,
           usesCount: Number(award.uses_count) || 0,
           usesRemaining: Number(award.uses_remaining) || 0,
+          unlimitedRedemptions: award.unlimited_redemptions === true,
           isRedeemable: award.is_redeemable === true,
           canRedeem: award.can_redeem === true,
         }));

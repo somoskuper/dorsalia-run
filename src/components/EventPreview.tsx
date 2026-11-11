@@ -777,21 +777,20 @@ export default function EventPreview({
               <section className="mt-10 w-full min-w-0 max-w-xl overflow-hidden">
                 <h3 className="text-[22px] font-semibold leading-tight text-white">Medallas del evento</h3>
                 {routeMedals.length ? <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.16em] text-white/45">Por modalidad</p> : null}
-                <div className="mt-3 flex flex-wrap items-end gap-4">
+                <div className="mt-3 flex flex-wrap gap-4">
                   {routeMedals.map((m) => (
-                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="group relative rounded-2xl p-1 outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla ${m.alt}`}>
+                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="flex h-[132px] w-[132px] shrink-0 items-center justify-center outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla ${m.alt}`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={m.url} alt={m.alt} className="h-[88px] w-auto object-contain" />
-                      <span className="pointer-events-none absolute inset-x-0 -bottom-5 text-center text-[10px] font-semibold text-white/0 transition group-hover:text-white/65">Ver medalla</span>
+                      <img src={m.url} alt={m.alt} className="h-[112px] w-[112px] object-contain" />
                     </button>
                   ))}
                 </div>
                 {promotionalMedals.length ? <p className="mt-8 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--site-accent,#c9f24b)]">Especiales y patrocinadas</p> : null}
-                <div className="mt-3 flex flex-wrap items-end gap-4">
+                <div className="mt-3 flex flex-wrap gap-4">
                   {promotionalMedals.map((m) => (
-                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="group relative p-1 outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla especial ${m.alt}`}>
+                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="flex h-[132px] w-[132px] shrink-0 items-center justify-center outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla especial ${m.alt}`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={m.url} alt={m.alt} className="h-[110px] w-auto object-contain" />
+                      <img src={m.url} alt={m.alt} className="h-[112px] w-[112px] object-contain" />
                     </button>
                   ))}
                 </div>

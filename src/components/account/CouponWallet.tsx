@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import GlassIconButton from "@/components/account/GlassIconButton";
+import MedalSheet from "@/components/account/MedalSheet";
+import type { ProfileMedal } from "@/components/account/AccountProfileView";
 import GlassPanel from "@/components/ui/GlassPanel";
 import { claimCouponByFolio, fetchMyCoupons, type AthleteCoupon } from "@/lib/athleteCoupons";
+import { createClient } from "@/lib/supabase/client";
 import { Bone } from "@/components/ui/Skeleton";
 
 const GLASS = { glassColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.25)", blur: 16, frost: 0, saturation: 130, aberrationIntensity: 0.02 };
@@ -38,6 +41,57 @@ export function CouponCard({ coupon, interactive = true }: { coupon: AthleteCoup
   </article>;
 }
 
+type WalletMedalAward = {
+  id: string;
+  name?: string;
+  image_url?: string;
+  source_type?: ProfileMedal["sourceType"];
+  description?: string | null;
+  sponsor_name?: string | null;
+  expires_at?: string | null;
+  terms_and_conditions?: string | null;
+  max_uses?: number;
+  uses_count?: number;
+  uses_remaining?: number;
+  unlimited_redemptions?: boolean;
+  is_redeemable?: boolean;
+  can_redeem?: boolean;
+  destination_url?: string | null;
+};
+
+function medalIsSpent(medal: ProfileMedal) {
+  const expiresAt = medal.expiresAt ? Date.parse(medal.expiresAt) : NaN;
+  if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) return true;
+  const hasUseLimit = medal.unlimitedRedemptions !== true && (medal.maxUses || 0) > 0;
+  return hasUseLimit && (medal.usesRemaining ?? 0) <= 0;
+}
+
+async function fetchWalletMedals(): Promise<Array<ProfileMedal & { destinationUrl?: string | null }>> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("athlete_my_medals");
+  const awards = !error && Array.isArray(data) ? data as WalletMedalAward[] : [];
+  const medals: Array<ProfileMedal & { destinationUrl?: string | null }> = awards.filter((award) => award.id && award.image_url && award.source_type === "promotional").map((award) => ({
+    key: `award:${award.id}`,
+    label: award.name || "Medalla conseguida",
+    imageUrl: award.image_url || "",
+    completed: true,
+    awardId: award.id,
+    sourceType: award.source_type,
+    description: award.description || null,
+    sponsorName: award.sponsor_name || null,
+    expiresAt: award.expires_at || null,
+    termsAndConditions: award.terms_and_conditions || null,
+    maxUses: Number(award.max_uses) || 0,
+    usesCount: Number(award.uses_count) || 0,
+    usesRemaining: Number(award.uses_remaining) || 0,
+    unlimitedRedemptions: award.unlimited_redemptions === true,
+    isRedeemable: award.is_redeemable === true,
+    canRedeem: award.can_redeem === true,
+    destinationUrl: award.destination_url || null,
+  }));
+  return medals;
+}
+
 export default function CouponWallet({ userId }: { userId: string }) {
   const [coupons, setCoupons] = useState<AthleteCoupon[]>([]);
   const [tab, setTab] = useState<"available" | "expired">("available");
@@ -45,15 +99,52 @@ export default function CouponWallet({ userId }: { userId: string }) {
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [folio,setFolio]=useState("");const [claimBusy,setClaimBusy]=useState(false);const [claimError,setClaimError]=useState("");const [claimNotice,setClaimNotice]=useState("");
+  const [medals, setMedals] = useState<Array<ProfileMedal & { destinationUrl?: string | null }>>([]);
+  const [selectedMedal, setSelectedMedal] = useState<(ProfileMedal & { destinationUrl?: string | null }) | null>(null);
+  const [redeeming, setRedeeming] = useState(false);
+  const [redemptionMessage, setRedemptionMessage] = useState<string | null>(null);
   async function claim(e:FormEvent){e.preventDefault();setClaimBusy(true);setClaimError("");setClaimNotice("");try{const result=await claimCouponByFolio(folio);setCoupons(prev=>[result.coupon,...prev.filter(c=>c.id!==result.coupon.id)]);setTab(result.coupon.status==="available"?"available":"expired");setFolio("");setClaimNotice(result.already_owned?"Este cupón ya está en tu lista.":"Cupón agregado a tus disponibles.");}catch(e){setClaimError(e instanceof Error?e.message:"No pudimos obtener el cupón.");}finally{setClaimBusy(false);}}
+
+  async function redeemMedal() {
+    if (!selectedMedal?.awardId || !selectedMedal.canRedeem || redeeming) return;
+    setRedeeming(true);
+    setRedemptionMessage(null);
+    const { data, error: redeemError } = await createClient().rpc("redeem_promotional_medal", { p_medal_award_id: selectedMedal.awardId });
+    if (redeemError) {
+      const message = redeemError.message.includes("MEDAL_EXPIRED")
+        ? "Esta medalla ya venció."
+        : redeemError.message.includes("NO_USES_REMAINING")
+          ? "Ya utilizaste todos los usos disponibles."
+          : "No se pudo registrar el uso. Intenta nuevamente.";
+      setRedemptionMessage(message);
+    } else {
+      const result = data as { uses_count?: number; uses_remaining?: number | null; unlimited_redemptions?: boolean } | null;
+      const isUnlimited = result?.unlimited_redemptions === true || selectedMedal.unlimitedRedemptions === true;
+      const remaining = isUnlimited ? null : Number(result?.uses_remaining) || 0;
+      const next = {
+        ...selectedMedal,
+        usesCount: Number(result?.uses_count) || (selectedMedal.usesCount || 0) + 1,
+        usesRemaining: remaining,
+        unlimitedRedemptions: isUnlimited,
+        canRedeem: isUnlimited || Number(remaining) > 0,
+      };
+      setSelectedMedal(next);
+      setMedals((current) => current.map((medal) => medal.key === next.key ? next : medal));
+      setRedemptionMessage("Uso registrado correctamente.");
+    }
+    setRedeeming(false);
+  }
 
   useEffect(() => {
     let active = true;
     setLoading(true); setError(""); setCoupons([]);
     fetchMyCoupons().then((rows) => { if (active) setCoupons(rows); }).catch((err) => { if (active) setError(err.message); }).finally(() => { if (active) setLoading(false); });
+    fetchWalletMedals().then((rows) => { if (active) setMedals(rows); }).catch(() => { if (active) setMedals([]); });
     return () => { active = false; };
   }, [userId, retry]);
   const visible = coupons.filter((coupon) => tab === "available" ? coupon.status === "available" && Date.parse(coupon.expires_at) > Date.now() : coupon.status !== "available" || Date.parse(coupon.expires_at) <= Date.now());
+  const visibleMedals = useMemo(() => medals.filter((medal) => tab === "available" ? !medalIsSpent(medal) : medalIsSpent(medal)), [medals, tab]);
+  const openedMedal = selectedMedal;
   return <section className="mx-auto min-h-screen max-w-3xl bg-[#0e0e0e] px-[15px] pb-28 text-white">
     <div className="sticky top-0 lg:top-[63px] z-30 -mx-[15px] bg-[#0e0e0e] px-[15px] pb-3 pt-[15px]">
       <CouponHeader />
@@ -69,8 +160,32 @@ export default function CouponWallet({ userId }: { userId: string }) {
       <div className="flex flex-wrap gap-2"><input id="coupon-claim-folio" required maxLength={48} value={folio} onChange={e=>setFolio(e.target.value.toUpperCase())} autoComplete="off" autoCapitalize="characters" placeholder="Ingresa el folio" className="min-w-0 flex-1 rounded-full border border-white/20 bg-white/5 px-4 py-3 text-[16px] text-white"/><button type="submit" disabled={claimBusy||!folio.trim()} style={{backgroundColor:"#c9f24b",color:"#070707"}} className="rounded-full px-5 py-3 text-[15px] font-semibold disabled:opacity-50">{claimBusy?"Agregando…":"Obtener cupón"}</button></div>
       {claimError&&<p role="alert" className="text-[13px] text-red-300">{claimError}</p>}{claimNotice&&<p role="status" className="text-[13px] text-[#c9f24b]">{claimNotice}</p>}
     </form>
+    {!loading && !error && visibleMedals.length > 0 ? <div className="-mx-[15px] mt-[22px] flex snap-x snap-mandatory gap-4 overflow-x-auto px-[15px] pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Tus medallas">
+      {visibleMedals.map((medal) => <button key={medal.key} type="button" onClick={() => { setSelectedMedal(medal); setRedemptionMessage(null); }} className="flex aspect-square w-[min(70vw,260px)] shrink-0 snap-center items-center justify-center" aria-label={`Ver medalla ${medal.label}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}<img src={medal.imageUrl} alt={medal.label} className="h-[82%] w-[82%] object-contain" />
+      </button>)}
+    </div> : null}
     <div id="coupon-list" role="tabpanel" aria-labelledby={`coupon-tab-${tab}`} className="mt-[22px] flex flex-col gap-[14px]" aria-busy={loading}>
       {loading ? <div className="flex flex-col gap-3 pt-2" role="status" aria-busy="true" aria-label="Cargando tus cupones">{[0, 1, 2].map((i) => <Bone key={i} style={{ height: 120, borderRadius: 20 }} />)}</div> : error ? <div role="alert" className="py-8 text-center"><p>{error}</p><button type="button" onClick={() => setRetry((n) => n + 1)} className="mt-4 underline">Intentar de nuevo</button></div> : visible.length ? visible.map((coupon) => <CouponCard key={coupon.id} coupon={coupon} />) : <p className="py-12 text-center text-[14px] leading-6 text-white/50">{tab === "available" ? "Aún no tienes cupones disponibles. Aquí aparecerán tus beneficios por participar en eventos." : "Aquí aparecerán tus cupones vencidos o canjeados."}</p>}
     </div>
+    {openedMedal ? <MedalSheet
+      title={openedMedal.label}
+      imageUrl={openedMedal.imageUrl}
+      eyebrow={openedMedal.sourceType === "promotional" ? "Medalla especial" : openedMedal.sourceType === "route" ? "Medalla de modalidad" : openedMedal.key === "dorsalia-first-event" ? "Medalla Dorsalia" : "Medalla"}
+      description={openedMedal.description}
+      destinationUrl={openedMedal.destinationUrl}
+      onClose={() => setSelectedMedal(null)}
+      redemption={openedMedal.isRedeemable ? {
+        usesRemaining: openedMedal.usesRemaining ?? 0,
+        maxUses: openedMedal.maxUses ?? 0,
+        unlimitedRedemptions: openedMedal.unlimitedRedemptions === true,
+        expiresAt: openedMedal.expiresAt,
+        termsAndConditions: openedMedal.termsAndConditions,
+        canRedeem: openedMedal.canRedeem === true && !medalIsSpent(openedMedal),
+        busy: redeeming,
+        message: redemptionMessage,
+        onRedeem: () => void redeemMedal(),
+      } : null}
+    /> : null}
   </section>;
 }

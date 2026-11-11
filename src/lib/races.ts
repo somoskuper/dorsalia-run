@@ -25,6 +25,7 @@ export type PublicPromotionalMedal = {
   expires_at?: string | null;
   max_uses_per_athlete?: number;
   terms_and_conditions?: string | null;
+  unlimited_redemptions?: boolean;
 };
 
 export type PublicRace = {

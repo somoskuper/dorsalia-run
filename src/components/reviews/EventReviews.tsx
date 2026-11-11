@@ -243,7 +243,23 @@ export default function EventReviews({ raceEventId, returnPath, data, loading, o
   </section>;
 }
 
-export function FirstEventBadgeModal({ onClose, message = "¡Tu primera reseña desbloqueó esta insignia!" }: { onClose: () => void; message?: string }) {
+export function FirstEventBadgeModal({
+  onClose,
+  message = "¡Tu primera reseña desbloqueó esta insignia! Ya puedes mostrarla en tu perfil desde Configuración → Medallas en tu perfil.",
+  title = "Primer evento en Dorsalia",
+  imageUrl = "https://dorsalia.run/assetsdev/primer-evento-dorsalia.webp",
+  eyebrow = "Nueva insignia",
+  buttonLabel = "¡Entendido!",
+  onAction,
+}: {
+  onClose: () => void;
+  message?: string;
+  title?: string;
+  imageUrl?: string;
+  eyebrow?: string;
+  buttonLabel?: string;
+  onAction?: () => void;
+}) {
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   useEffect(() => {
@@ -263,14 +279,14 @@ export function FirstEventBadgeModal({ onClose, message = "¡Tu primera reseña 
       <button type="button" onClick={onClose} className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20" aria-label="Cerrar">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 2l12 12M14 2 2 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
       </button>
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--site-accent,#c9f24b)]">Nueva insignia</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--site-accent,#c9f24b)]">{eyebrow}</p>
       <div className="mt-5 grid h-[min(56vw,280px)] w-[min(56vw,280px)] place-items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="https://dorsalia.run/assetsdev/primer-evento-dorsalia.webp" alt="Insignia Primer evento en Dorsalia" className="dorsalia-first-medal-animation max-h-full max-w-full object-contain" />
+        <img src={imageUrl} alt={`Medalla ${title}`} className="dorsalia-first-medal-animation max-h-full max-w-full object-contain" />
       </div>
-      <h2 id="first-event-badge-title" className="mt-8 text-2xl font-bold text-white sm:text-3xl">Primer evento en Dorsalia</h2>
-      <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/65">{message} Ya puedes mostrarla en tu perfil desde <span className="font-semibold text-white">Configuración → Medallas en tu perfil</span>.</p>
-      <button type="button" onClick={onClose} className="mt-6 rounded-full bg-[#c9f24b] px-7 py-3 text-sm font-bold text-black">¡Entendido!</button>
+      <h2 id="first-event-badge-title" className="mt-8 text-2xl font-bold text-white sm:text-3xl">{title}</h2>
+      <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/65">{message}</p>
+      <button type="button" onClick={onAction || onClose} className="mt-6 rounded-full bg-[#c9f24b] px-7 py-3 text-sm font-bold text-black">{buttonLabel}</button>
     </div>
     <style jsx global>{`@-webkit-keyframes dorsalia-first-medal-float { 0%, 100% { -webkit-transform: translateY(0) rotate(-5deg) scale(1); transform: translateY(0) rotate(-5deg) scale(1); } 50% { -webkit-transform: translateY(-8px) rotate(5deg) scale(1.04); transform: translateY(-8px) rotate(5deg) scale(1.04); } } @keyframes dorsalia-first-medal-float { 0%, 100% { -webkit-transform: translateY(0) rotate(-5deg) scale(1); transform: translateY(0) rotate(-5deg) scale(1); } 50% { -webkit-transform: translateY(-8px) rotate(5deg) scale(1.04); transform: translateY(-8px) rotate(5deg) scale(1.04); } } .dorsalia-first-medal-animation { -webkit-animation: dorsalia-first-medal-float 3.6s ease-in-out infinite; animation: dorsalia-first-medal-float 3.6s ease-in-out infinite; -webkit-transform-origin: center; transform-origin: center; will-change: transform; } @media (prefers-reduced-motion: reduce) { .dorsalia-first-medal-animation { -webkit-animation: none; animation: none; } }`}</style>
   </div>, document.body);

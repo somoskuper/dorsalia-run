@@ -37,7 +37,8 @@ export type ProfileMedal = {
   termsAndConditions?: string | null;
   maxUses?: number;
   usesCount?: number;
-  usesRemaining?: number;
+  usesRemaining?: number | null;
+  unlimitedRedemptions?: boolean;
   isRedeemable?: boolean;
   canRedeem?: boolean;
 };
@@ -104,14 +105,16 @@ export default function AccountProfileView({
           : "No se pudo registrar el uso. Intenta nuevamente.";
       setRedemptionMessage(message);
     } else {
-      const result = data as { uses_count?: number; uses_remaining?: number } | null;
-      const remaining = Number(result?.uses_remaining) || 0;
+      const result = data as { uses_count?: number; uses_remaining?: number | null; unlimited_redemptions?: boolean } | null;
+      const isUnlimited = result?.unlimited_redemptions === true || openedMedal.unlimitedRedemptions === true;
+      const remaining = isUnlimited ? null : Number(result?.uses_remaining) || 0;
       setRedemptionOverrides((current) => ({
         ...current,
         [openedMedal.key]: {
           usesCount: Number(result?.uses_count) || (openedMedal.usesCount || 0) + 1,
           usesRemaining: remaining,
-          canRedeem: remaining > 0,
+          unlimitedRedemptions: isUnlimited,
+          canRedeem: isUnlimited || Number(remaining) > 0,
         },
       }));
       setRedemptionMessage("Uso registrado correctamente.");
@@ -186,6 +189,7 @@ export default function AccountProfileView({
         redemption={openedMedal.isRedeemable && !readOnly ? {
           usesRemaining: openedMedal.usesRemaining ?? 0,
           maxUses: openedMedal.maxUses ?? 0,
+          unlimitedRedemptions: openedMedal.unlimitedRedemptions === true,
           expiresAt: openedMedal.expiresAt,
           termsAndConditions: openedMedal.termsAndConditions,
           canRedeem: openedMedal.canRedeem === true,
