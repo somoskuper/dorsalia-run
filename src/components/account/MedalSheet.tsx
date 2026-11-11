@@ -55,8 +55,8 @@ export default function MedalSheet({
     const start = drag.current;
     if (!start) return;
     setTilt({
-      x: clampTilt(start.x + (clientY - start.py) * 0.35),
-      y: clampTilt(start.y + (clientX - start.px) * 0.35),
+      x: clampTilt(start.x - (clientY - start.py) * 0.35),
+      y: clampTilt(start.y - (clientX - start.px) * 0.35),
     });
   }
 
