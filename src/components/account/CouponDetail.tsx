@@ -60,7 +60,7 @@ export default function CouponDetail({ id }: { id: string }) {
     finally { setBusy(false); }
   }
 
-  const background = coupon?.background_color || "#ed2024";
+  const background = coupon?.background_color || "#070707";
   const textColor = coupon?.text_color || "#ffffff";
   const buttonColors = {backgroundColor:coupon?.button_background_color || "#ffffff",color:coupon?.button_text_color || "#070707"};
   const available = coupon?.status === "available" && Date.parse(coupon.expires_at) > Date.now();

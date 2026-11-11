@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
 import GlassPanel from "@/components/ui/GlassPanel";
 
 const TILT_LIMIT = 35;
@@ -131,8 +132,8 @@ export default function MedalSheet({
     moveDrag(event.clientX, event.clientY);
   }
 
-  return (
-    <div className="fixed inset-0 z-[280] flex items-center justify-center p-5 sm:p-8" role="dialog" aria-modal="true" aria-label={`Vista de ${title}`}>
+  const sheet = (
+    <div className="fixed inset-0 z-[500] flex items-center justify-center overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:p-8" style={{ zIndex: 500 }} role="dialog" aria-modal="true" aria-label={`Vista de ${title}`}>
       <button type="button" className="absolute inset-0 bg-black/45 backdrop-blur-2xl" aria-label="Cerrar vista de medalla" onClick={onClose} />
       <GlassPanel radius={32} className="relative z-10 h-fit w-full max-w-md self-center" style={{ width: "100%", height: "fit-content", flex: "0 0 auto" }} glassProps={GLASS}>
         <div className="relative flex flex-col items-center overflow-hidden px-7 py-8 sm:px-10">
@@ -192,4 +193,7 @@ export default function MedalSheet({
       </GlassPanel>
     </div>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(sheet, document.body);
 }

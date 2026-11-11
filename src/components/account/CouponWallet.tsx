@@ -146,10 +146,13 @@ export default function CouponWallet({ userId }: { userId: string }) {
   const visibleMedals = useMemo(() => medals.filter((medal) => tab === "available" ? !medalIsSpent(medal) : medalIsSpent(medal)), [medals, tab]);
   const openedMedal = selectedMedal;
   return <section className="mx-auto min-h-screen max-w-3xl bg-[#0e0e0e] px-[15px] pb-28 text-white">
-    <div className="sticky top-0 lg:top-[63px] z-30 -mx-[15px] bg-[#0e0e0e] px-[15px] pb-3 pt-[15px]">
+    <div className="pt-[15px]">
       <CouponHeader />
       <h1 className="mt-[28px] text-[32px] font-bold leading-[38px]">Cupones</h1>
-      <div role="tablist" aria-label="Estado de cupones" className="mt-[24px] flex">
+    </div>
+    <div className="h-6" aria-hidden />
+    <div className="sticky top-0 z-30 -mx-[15px] bg-[#0e0e0e] px-[15px] pb-3 pt-2 lg:top-[63px]">
+      <div role="tablist" aria-label="Estado de cupones" className="flex">
         {([{ id: "available", label: "Disponibles", icon: "ticket-available" }, { id: "expired", label: "Vencidos", icon: "ticket-expired" }] as const).map((item) => <button key={item.id} id={`coupon-tab-${item.id}`} role="tab" aria-selected={tab === item.id} aria-controls="coupon-list" type="button" onClick={() => setTab(item.id)} className={`flex w-1/2 items-center justify-center gap-[5px] border-b-2 pb-[14px] text-[16px] ${tab === item.id ? "border-[#c5e500]" : "border-transparent"}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}<img src={`/coupons/${item.icon}.svg`} alt="" width={24} height={24} />{item.label}
         </button>)}
