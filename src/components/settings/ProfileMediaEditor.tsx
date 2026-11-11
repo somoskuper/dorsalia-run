@@ -58,7 +58,7 @@ export default function ProfileMediaEditor({ kind }: { kind: MediaKind }) {
     try {
       let value = selectedCover;
       if (file) {
-        const webp = await convertImageToWebP(file, kind, { square: kind === "avatar", quality: kind === "avatar" ? 0.9 : undefined });
+        const webp = await convertImageToWebP(file, kind, { square: kind === "avatar", quality: kind === "avatar" ? 0.8 : undefined, maxSize: kind === "avatar" ? 512 : undefined });
         const path = `avatars/${user.id}/${kind}-${Date.now()}.webp`;
         const { error: uploadError } = await supabase.storage.from("public-image").upload(path, webp, { contentType: "image/webp", upsert: true });
         if (uploadError) throw uploadError;

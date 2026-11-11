@@ -7,7 +7,7 @@ import StarRating from "@/components/reviews/StarRating";
 import PostEngagement from "@/components/activity/PostEngagement";
 import RelativeTime from "@/components/activity/RelativeTime";
 import { reviewExperienceLabel, type ReviewPhoto } from "@/lib/eventReviews";
-import { highResolutionAvatar } from "@/lib/avatarImage";
+import AvatarImage from "@/components/ui/AvatarImage";
 import EventGlassLink from "@/components/activity/EventGlassLink";
 import PostMenu from "@/components/activity/PostMenu";
 import CreatorVerifiedBadge from "@/components/creator/CreatorVerifiedBadge";
@@ -55,7 +55,7 @@ export default function ReviewPost({ authorName, username, avatarUrl, profileHre
   const feed = variant === "feed";
   const compact = reviewPage || feed;
   const identity = <>
-    {avatarUrl ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={highResolutionAvatar(avatarUrl) || avatarUrl} alt="" className={`${compact ? "h-[35px] w-[35px]" : "h-11 w-11"} shrink-0 rounded-full object-cover`} /> : <div className={`${compact ? "h-[35px] w-[35px]" : "h-11 w-11"} grid shrink-0 place-items-center rounded-full bg-white/10 font-bold text-white`}>{authorName.slice(0, 1).toUpperCase()}</div>}
+    {avatarUrl ? <AvatarImage src={avatarUrl} size={compact ? 35 : 44} className={`${compact ? "h-[35px] w-[35px]" : "h-11 w-11"} shrink-0 rounded-full object-cover`} /> : <div className={`${compact ? "h-[35px] w-[35px]" : "h-11 w-11"} grid shrink-0 place-items-center rounded-full bg-white/10 font-bold text-white`}>{authorName.slice(0, 1).toUpperCase()}</div>}
     <div className="min-w-0 flex-1"><p className={`${compact ? "text-[20px] font-normal" : "text-sm font-semibold"} flex items-center gap-1 text-white`}><span className="truncate">{compact ? authorName : username ? `@${username}` : authorName}</span>{verified ? <CreatorVerifiedBadge size={compact ? 16 : 14} /> : null}</p>{compact ? <p className="text-[11px] text-white/50"><RelativeTime value={updatedAt} /></p> : eventName ? <p className="truncate text-xs text-white/45">{eventName}</p> : null}</div>
   </>;
   const media = photos.length ? photos.map((photo) => ({ id: photo.id, src: photo.image_url })) : fallbackImage ? [{ id: "cover", src: fallbackImage }] : [];

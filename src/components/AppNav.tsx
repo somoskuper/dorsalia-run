@@ -7,6 +7,7 @@ import { useAthleteAuth } from "@/components/AthleteAuthProvider";
 import FullScreenMenu from "@/components/FullScreenMenu";
 import AssetIcon from "@/components/ui/AssetIcon";
 import { DESK_ICON, DESK_NAV_GAP, DESK_RAIL_W } from "@/lib/appChrome";
+import AvatarImage from "@/components/ui/AvatarImage";
 
 const ICON_MENU = "/branding/Hamburger_MD.svg";
 const ICON_SETTINGS = "/branding/Settings.svg";
@@ -147,15 +148,7 @@ export default function AppNav({ inDocumentFlow = false }: { inDocumentFlow?: bo
               aria-current={profileActive ? "page" : undefined}
             >
               {avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={avatarUrl}
-                  alt=""
-                  width={DESK_ICON}
-                  height={DESK_ICON}
-                  className="object-cover"
-                  style={deskIconStyle}
-                />
+                <AvatarImage src={avatarUrl} size={DESK_ICON} className="object-cover" />
               ) : (
                 <AssetIcon name="user-stroke" size={24} className="text-white" />
               )}

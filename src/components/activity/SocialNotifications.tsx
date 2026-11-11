@@ -6,6 +6,7 @@ import { useState } from "react";
 import RelativeTime from "@/components/activity/RelativeTime";
 import { FirstEventBadgeModal } from "@/components/reviews/EventReviews";
 import { ListRowsSkeleton } from "@/components/ui/Skeleton";
+import AvatarImage from "@/components/ui/AvatarImage";
 import { createClient } from "@/lib/supabase/client";
 
 export type SocialNotification = {
@@ -56,7 +57,7 @@ export default function SocialNotifications({ items, loading, error, signedIn }:
       <span className="min-w-0 flex-1 text-sm leading-snug text-white/65"><strong className="block text-[#c9f24b]">{claimingId === item.medal_award_id ? "Reclamando…" : "Reclama tu medalla"}</strong>{item.medal_name || "Nueva medalla"}{item.event_name ? ` · ${item.event_name}` : ""}<span className="mt-1 block text-xs text-white/40"><RelativeTime value={item.created_at} /></span></span>
       {item.unread ? <span className="h-2 w-2 shrink-0 rounded-full bg-[#c9f24b]" aria-label="Nueva" /> : null}
     </button> : <Link key={item.id} href={`/perfil/${item.username || item.actor_id}`} className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-white/[0.04]">
-      {item.avatar_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={item.avatar_url} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" /> : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/10 text-sm font-bold">{item.display_name.slice(0, 1).toUpperCase()}</span>}
+      {item.avatar_url ? <AvatarImage src={item.avatar_url} size={48} className="h-12 w-12 shrink-0 rounded-full object-cover" /> : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/10 text-sm font-bold">{item.display_name.slice(0, 1).toUpperCase()}</span>}
       <span className="min-w-0 flex-1 text-sm leading-snug text-white/65"><strong className="text-white">{item.username ? `@${item.username}` : item.display_name}</strong> {item.kind === "follow" ? "comenzó a seguirte" : `le dio Me gusta a tu ${item.post_type === "review" ? "reseña" : "publicación"}${item.event_name ? ` de ${item.event_name}` : ""}`}<span className="mt-1 block text-xs text-white/40"><RelativeTime value={item.created_at} /></span></span>
       {item.unread ? <span className="h-2 w-2 shrink-0 rounded-full bg-[#c9f24b]" aria-label="Nueva" /> : null}
     </Link>)}

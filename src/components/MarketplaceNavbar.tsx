@@ -31,6 +31,7 @@ import {
   writeFiltersToSearchParams,
 } from "@/lib/raceSearch";
 import { PORTAL_URL } from "@/lib/races";
+import AvatarImage from "@/components/ui/AvatarImage";
 
 const LOGO_DESK = "/branding/Logo-dorsaliarun.svg";
 const ICON_FILTERS = "/branding/filtros-icon.svg";
@@ -249,7 +250,7 @@ export default function MarketplaceNavbar(_props: { overlay?: boolean }) {
           <div className="flex items-center gap-4">
             {showAccount ? (
               <Link href={accountHref} aria-label="Mi perfil" className="grid h-[43px] w-[43px] shrink-0 place-items-center overflow-hidden rounded-[21.5px] bg-white/[0.08]">
-                {profile.avatarUrl ? /* eslint-disable-next-line @next/next/no-img-element */<img src={profile.avatarUrl} alt="" width={43} height={43} className="h-full w-full object-cover" /> : /* eslint-disable-next-line @next/next/no-img-element */<img src="/mobile-home/imgUserStroke2.svg" alt="" width={30} height={30} />}
+                {profile.avatarUrl ? <AvatarImage src={profile.avatarUrl} size={43} className="h-full w-full object-cover" /> : /* eslint-disable-next-line @next/next/no-img-element */<img src="/mobile-home/imgUserStroke2.svg" alt="" width={30} height={30} />}
               </Link>
             ) : null}
             <Link href="/" aria-label="Dorsalia — inicio">

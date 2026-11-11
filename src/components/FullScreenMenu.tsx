@@ -5,6 +5,7 @@ import { useEffect, useState, type AnchorHTMLAttributes, type ReactNode } from "
 import { useAthleteAuth } from "@/components/AthleteAuthProvider";
 import Button from "@/components/ui/Button";
 import { PORTAL_URL } from "@/lib/races";
+import AvatarImage from "@/components/ui/AvatarImage";
 
 const EDITOR_URL =
   process.env.NEXT_PUBLIC_EDITOR_URL || "https://editor.dorsalia.run";
@@ -161,14 +162,7 @@ export default function FullScreenMenu({
             >
               <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/10">
                 {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={avatarUrl}
-                    alt=""
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 object-cover"
-                  />
+                  <AvatarImage src={avatarUrl} size={40} className="h-10 w-10 object-cover" />
                 ) : (
                   <span className="text-sm font-bold text-white">{initials}</span>
                 )}

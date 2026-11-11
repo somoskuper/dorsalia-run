@@ -7,6 +7,7 @@ import { fetchActivityComments, type ActivityComment } from "@/lib/activity";
 import { askForAccount } from "@/components/account/AccountPrompt";
 import { createClient } from "@/lib/supabase/client";
 import { CommentsSkeleton } from "@/components/ui/Skeleton";
+import AvatarImage from "@/components/ui/AvatarImage";
 
 function notify(postId: string, delta: number) {
   window.dispatchEvent(new CustomEvent("dorsalia:comments-changed", { detail: { postId, delta } }));
@@ -93,7 +94,7 @@ export default function PostComments({ postId, layout = "page", withComposer = f
 
   const list = loading ? <CommentsSkeleton /> : comments.length ? <ul>{comments.map((comment) => <li key={comment.id} className="border-b border-white/15 py-4">
     <div className="flex items-start gap-3">
-      {comment.avatar_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={comment.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" /> : <span className="h-10 w-10 shrink-0 rounded-full bg-white/20" />}
+      {comment.avatar_url ? <AvatarImage src={comment.avatar_url} size={40} className="h-10 w-10 shrink-0 rounded-full object-cover" /> : <span className="h-10 w-10 shrink-0 rounded-full bg-white/20" />}
       <div className="min-w-0 flex-1">
         <p className="text-[16px] font-semibold leading-6">{comment.display_name || "Usuario"}</p>
         <p className="text-[13px] text-white/50">{new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "numeric", year: "numeric" }).format(new Date(comment.created_at))}</p>

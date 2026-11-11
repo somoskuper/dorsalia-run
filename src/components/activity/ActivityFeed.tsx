@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 import { publicEventPath, usePublicEventPaths, type EventPaths } from "@/lib/usePublicEventPaths";
 import { Bone, PostSkeleton } from "@/components/ui/Skeleton";
 import ViewedCreatorPost from "@/components/creator/ViewedCreatorPost";
+import AvatarImage from "@/components/ui/AvatarImage";
 
 export default function ActivityFeed({ userId, followingOnly = false, excludeUserId = null, refreshKey = 0, emptyText = "Todavía no hay actividad." }: { userId?: string | null; followingOnly?: boolean; excludeUserId?: string | null; refreshKey?: number; emptyText?: string }) {
   const [items, setItems] = useState<ActivityItem[]>([]);
@@ -135,7 +136,7 @@ function ActivityCard({ item, action, eventPaths, detail = false }: { item: Acti
   return <article id={`post-${item.id}`} onClick={(event) => { if (detail) return; const target = event.target as HTMLElement; if (target.closest("a,button,input,textarea,summary,[data-post-media],[data-post-copy]")) return; router.push(`/post/${item.id}`); }} className={`overflow-hidden border-b border-white/10 bg-[#070707] py-5${!detail ? " cursor-pointer" : ""}`}>
     <div className="flex items-center gap-3 px-[15px]">
       <Link href={`/perfil/${item.username}`} className="flex min-w-0 flex-1 items-center gap-3">
-        {item.avatar_url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={item.avatar_url} alt="" className="h-11 w-11 rounded-full object-cover" /> : <span className="grid h-11 w-11 place-items-center rounded-full bg-white/10 font-bold">{item.display_name.slice(0, 1)}</span>}
+        {item.avatar_url ? <AvatarImage src={item.avatar_url} size={44} className="h-11 w-11 rounded-full object-cover" /> : <span className="grid h-11 w-11 place-items-center rounded-full bg-white/10 font-bold">{item.display_name.slice(0, 1)}</span>}
         <div className="min-w-0"><p className="truncate text-sm font-semibold text-white">@{item.username}</p><p className="text-[11px] text-white/50"><RelativeTime value={item.created_at} /></p></div>
       </Link>
       {action || <details className="relative"><summary className="list-none cursor-pointer text-2xl leading-none text-white/80" aria-label="Más opciones">⋮</summary><span className="absolute right-0 top-8 z-20 whitespace-nowrap rounded-xl bg-[#181818] px-4 py-3 text-sm text-white">Compartir</span></details>}

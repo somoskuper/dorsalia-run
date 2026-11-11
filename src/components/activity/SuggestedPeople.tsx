@@ -4,12 +4,8 @@ import { useEffect, useState } from "react";
 import ActivityFeed from "@/components/activity/ActivityFeed";
 import { ListRowsSkeleton } from "@/components/ui/Skeleton";
 import { createClient } from "@/lib/supabase/client";
+import AvatarImage from "@/components/ui/AvatarImage";
 import { fetchSuggestedPeople, hydrateSuggestedAvatars, type SuggestedPerson } from "@/lib/suggestedPeople";
-
-function avatarThumb(url: string | null) {
-  if (!url) return null;
-  return url.replace(/=s\d+(-c)?(?=$|[?#])/i, "=s96$1");
-}
 
 function countLabel(count: number, one: string, many: string) {
   if (!count) return null;
@@ -102,7 +98,7 @@ export default function SuggestedPeople({ viewerId, onDone }: { viewerId?: strin
             const followingPerson = followed.has(person.userId);
             return <div key={person.userId} className="flex min-h-[64px] items-center gap-2 border-b border-white/10 px-[15px] py-3">
               <span className="relative grid h-[36px] w-[36px] shrink-0 place-items-center overflow-hidden rounded-[6px] bg-white/10 text-[14px] font-semibold text-white">
-                {person.avatarUrl ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={avatarThumb(person.avatarUrl) || person.avatarUrl} alt="" width={36} height={36} decoding="async" className="h-full w-full object-cover" /> : person.displayName.slice(0, 1).toUpperCase()}
+                {person.avatarUrl ? <AvatarImage src={person.avatarUrl} size={36} className="h-full w-full object-cover" /> : person.displayName.slice(0, 1).toUpperCase()}
               </span>
               <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
                 <span className="block min-w-0 truncate text-[20px] font-normal leading-6 text-white">{person.displayName}</span>
