@@ -71,7 +71,15 @@ function youtubeEmbedUrl(value: string | null | undefined): string | null {
   }
 }
 
-type MedalPreview = { url: string; alt: string; key: string };
+type MedalPreview = {
+  url: string;
+  alt: string;
+  key: string;
+  kind: "route" | "promotional";
+  description?: string | null;
+  sponsor?: string | null;
+  destinationUrl?: string | null;
+};
 
 function MedalLightbox({ medal, onClose }: { medal: MedalPreview; onClose: () => void }) {
   return (
@@ -81,13 +89,16 @@ function MedalLightbox({ medal, onClose }: { medal: MedalPreview; onClose: () =>
         <button type="button" onClick={onClose} className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20" aria-label="Cerrar">
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 2l12 12M14 2 2 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         </button>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--site-accent,#c9f24b)]">Medalla del evento</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--site-accent,#c9f24b)]">{medal.kind === "promotional" ? "Medalla especial" : "Medalla de modalidad"}</p>
         <div className="mt-5 grid h-[min(56vw,280px)] w-[min(56vw,280px)] place-items-center [perspective:1000px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={medal.url} alt={medal.alt} className="max-h-full max-w-full object-contain [animation:medal-3d-spin_4s_ease-in-out_infinite] [transform-style:preserve-3d]" />
         </div>
         <h2 className="mt-12 text-2xl font-bold text-white sm:text-3xl">{medal.alt}</h2>
-        <p className="mt-2 text-sm text-white/55">Toca fuera de esta ficha para cerrar</p>
+        {medal.sponsor ? <p className="mt-2 text-sm font-semibold text-[var(--site-accent,#c9f24b)]">Presentada por {medal.sponsor}</p> : null}
+        {medal.description ? <p className="mt-2 text-sm leading-relaxed text-white/65">{medal.description}</p> : null}
+        {medal.destinationUrl ? <a href={medal.destinationUrl} target="_blank" rel="noopener noreferrer sponsored" className="mt-5 rounded-full bg-[var(--site-accent,#c9f24b)] px-5 py-2.5 text-sm font-bold text-black">Conocer patrocinador</a> : null}
+        {!medal.destinationUrl && !medal.description ? <p className="mt-2 text-sm text-white/55">Toca fuera de esta ficha para cerrar</p> : null}
       </div>
       <style jsx global>{`
         @keyframes medal-3d-spin {
@@ -308,9 +319,9 @@ export default function EventPreview({
     return price === 0 ? "Gratis" : money.format(price);
   }
 
-  const medals = useMemo(() => {
+  const routeMedals = useMemo(() => {
     const seen = new Set<string>();
-    const out: { url: string; alt: string; key: string }[] = [];
+    const out: MedalPreview[] = [];
     for (const r of routes) {
       const url = String(r.medal_image_url || "").trim();
       if (!url || seen.has(url)) continue;
@@ -319,10 +330,25 @@ export default function EventPreview({
         url,
         key: r.key || url,
         alt: String(r.medal_label || r.label || "Medalla").trim() || "Medalla",
+        kind: "route",
       });
     }
     return out;
   }, [routes]);
+  const promotionalMedals = useMemo<MedalPreview[]>(() => {
+    return (Array.isArray(race.promotional_medals) ? race.promotional_medals : [])
+      .filter((medal) => String(medal.image_url || "").trim())
+      .map((medal) => ({
+        url: String(medal.image_url).trim(),
+        alt: String(medal.name || "Medalla especial").trim() || "Medalla especial",
+        key: `promo-${medal.id}`,
+        kind: "promotional" as const,
+        description: medal.description,
+        sponsor: medal.sponsor_name,
+        destinationUrl: medal.destination_url,
+      }));
+  }, [race.promotional_medals]);
+  const medals = useMemo(() => [...routeMedals, ...promotionalMedals], [routeMedals, promotionalMedals]);
   const [selectedMedal, setSelectedMedal] = useState<MedalPreview | null>(null);
 
   const aboutText = String(race.description || "").trim() || seoDescription(race);
@@ -763,15 +789,24 @@ export default function EventPreview({
 
             {medals.length > 0 ? (
               <section className="mt-10 w-full min-w-0 max-w-xl overflow-hidden">
-                <h3 className="text-[22px] font-semibold leading-tight text-white">
-                  Modalidades
-                </h3>
-                <div className="mt-4 flex flex-wrap items-end gap-4">
-                  {medals.map((m) => (
+                <h3 className="text-[22px] font-semibold leading-tight text-white">Medallas del evento</h3>
+                {routeMedals.length ? <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.16em] text-white/45">Por modalidad</p> : null}
+                <div className="mt-3 flex flex-wrap items-end gap-4">
+                  {routeMedals.map((m) => (
                     <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="group relative rounded-2xl p-1 outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla ${m.alt}`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={m.url} alt={m.alt} className="h-[88px] w-auto object-contain" />
                       <span className="pointer-events-none absolute inset-x-0 -bottom-5 text-center text-[10px] font-semibold text-white/0 transition group-hover:text-white/65">Ver medalla</span>
+                    </button>
+                  ))}
+                </div>
+                {promotionalMedals.length ? <p className="mt-8 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--site-accent,#c9f24b)]">Especiales y patrocinadas</p> : null}
+                <div className="mt-3 flex flex-wrap items-end gap-4">
+                  {promotionalMedals.map((m) => (
+                    <button key={m.key} type="button" onClick={() => setSelectedMedal(m)} className="group relative max-w-[120px] rounded-2xl border border-[var(--site-accent,#c9f24b)]/20 bg-[var(--site-accent,#c9f24b)]/[0.04] p-3 outline-none transition hover:-translate-y-1 hover:border-[var(--site-accent,#c9f24b)]/50 focus-visible:ring-2 focus-visible:ring-[var(--site-accent,#c9f24b)]" aria-label={`Ver medalla especial ${m.alt}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={m.url} alt={m.alt} className="h-[88px] w-full object-contain" />
+                      <span className="mt-2 block truncate text-center text-[10px] font-semibold text-white/70">{m.sponsor || m.alt}</span>
                     </button>
                   ))}
                 </div>

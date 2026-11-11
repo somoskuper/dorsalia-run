@@ -9,12 +9,14 @@ import type { ProfileMedal } from "@/components/account/AccountProfileView";
 import { PhotoGridSkeleton } from "@/components/ui/Skeleton";
 
 type Registration = { id: string; dynamic_data?: Record<string, unknown>; race_event?: { medal_image_url?: string | null; routes?: { medal_image_url?: string | null; label?: string | null }[] | null; event_date?: string | null } | null };
+type MedalAward = { id: string; name: string; image_url: string; featured_sort_order?: number | null };
 
 export default function ProfileMedalEditor() {
   const router = useRouter();
   const { user, loading } = useAthleteAuth();
   const [medals, setMedals] = useState<ProfileMedal[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [usesAwardLedger, setUsesAwardLedger] = useState(false);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -27,27 +29,47 @@ export default function ProfileMedalEditor() {
     void Promise.all([
       supabase.from("athlete_profiles").select("featured_medal_keys").eq("user_id", user.id).maybeSingle(),
       supabase.rpc("athlete_my_registrations"),
-    ]).then(([profileResult, registrationsResult]) => {
+      supabase.rpc("athlete_my_medals"),
+    ]).then(([profileResult, registrationsResult, awardsResult]) => {
       if (!current) return;
-      if (profileResult.error || registrationsResult.error) { setError("No se pudieron cargar las medallas."); setReady(true); return; }
+      if (profileResult.error || (registrationsResult.error && awardsResult.error)) { setError("No se pudieron cargar las medallas."); setReady(true); return; }
       const all: ProfileMedal[] = [];
       if (user.user_metadata?.dorsalia_first_event_badge === true) all.push({ key: "dorsalia-first-event", label: "Primer evento en Dorsalia", imageUrl: "/assetsdev/primer-evento-dorsalia.webp", completed: true });
-      for (const item of (Array.isArray(registrationsResult.data) ? registrationsResult.data : []) as Registration[]) {
-        const routes = Array.isArray(item.race_event?.routes) ? item.race_event.routes : [];
-        const distance = String(item.dynamic_data?.distancia || item.dynamic_data?.distance || "").toLowerCase();
-        const route = routes.find((entry) => entry.medal_image_url && distance && String(entry.label || "").toLowerCase().includes(distance)) || routes.find((entry) => entry.medal_image_url);
-        const imageUrl = String(route?.medal_image_url || item.race_event?.medal_image_url || "");
-        if (!imageUrl) continue;
-        all.push({ key: `${item.id}-${imageUrl}`, label: String(route?.label || "Medalla"), imageUrl, completed: item.race_event?.event_date ? new Date(item.race_event.event_date).getTime() < Date.now() : false });
+      const awardRows = !awardsResult.error && Array.isArray(awardsResult.data) ? awardsResult.data as MedalAward[] : null;
+      if (awardRows) {
+        setUsesAwardLedger(true);
+        for (const award of awardRows) {
+          if (!award.id || !award.image_url) continue;
+          all.push({ key: `award:${award.id}`, label: award.name || "Medalla", imageUrl: award.image_url, completed: true });
+        }
+      } else {
+        for (const item of (Array.isArray(registrationsResult.data) ? registrationsResult.data : []) as Registration[]) {
+          const routes = Array.isArray(item.race_event?.routes) ? item.race_event.routes : [];
+          const distance = String(item.dynamic_data?.distancia || item.dynamic_data?.distance || "").toLowerCase();
+          const route = routes.find((entry) => entry.medal_image_url && distance && String(entry.label || "").toLowerCase().includes(distance)) || routes.find((entry) => entry.medal_image_url);
+          const imageUrl = String(route?.medal_image_url || item.race_event?.medal_image_url || "");
+          if (!imageUrl) continue;
+          all.push({ key: `${item.id}-${imageUrl}`, label: String(route?.label || "Medalla"), imageUrl, completed: item.race_event?.event_date ? new Date(item.race_event.event_date).getTime() < Date.now() : false });
+        }
       }
       const saved = profileResult.data?.featured_medal_keys;
-      for (const key of Array.isArray(saved) ? saved.map(String) : []) {
-        if (all.some((medal) => medal.key === key)) continue;
-        const imageUrl = key.replace(/^[0-9a-f-]{36}-/i, "");
-        if (imageUrl.startsWith("/") || imageUrl.startsWith("http")) all.push({ key, label: "Medalla conseguida", imageUrl, completed: true });
+      if (!awardRows) {
+        for (const key of Array.isArray(saved) ? saved.map(String) : []) {
+          if (all.some((medal) => medal.key === key)) continue;
+          const imageUrl = key.replace(/^[0-9a-f-]{36}-/i, "");
+          if (imageUrl.startsWith("/") || imageUrl.startsWith("http")) all.push({ key, label: "Medalla conseguida", imageUrl, completed: true });
+        }
       }
       setMedals(all);
-      setSelected(Array.isArray(saved) ? saved.map(String).filter((key) => all.some((medal) => medal.key === key)).slice(0, 3) : all.slice(0, 3).map((medal) => medal.key));
+      if (awardRows) {
+        const featured = [...awardRows]
+          .filter((award) => award.featured_sort_order != null)
+          .sort((a, b) => Number(a.featured_sort_order) - Number(b.featured_sort_order))
+          .map((award) => `award:${award.id}`);
+        setSelected(featured.slice(0, 3));
+      } else {
+        setSelected(Array.isArray(saved) ? saved.map(String).filter((key) => all.some((medal) => medal.key === key)).slice(0, 3) : all.slice(0, 3).map((medal) => medal.key));
+      }
       setReady(true);
     });
     return () => { current = false; };
@@ -66,9 +88,21 @@ export default function ProfileMedalEditor() {
     try {
       const { data: existing, error: readError } = await supabase.from("athlete_profiles").select("*").eq("user_id", user.id).maybeSingle();
       if (readError) throw readError;
-      const { error: saveError } = await supabase.from("athlete_profiles").upsert({ ...(existing || {}), user_id: user.id, featured_medal_keys: selected, updated_at: new Date().toISOString() });
+      const selectedAwards = selected.filter((key) => key.startsWith("award:")).map((key) => key.slice(6));
+      if (usesAwardLedger) {
+        const { error: featuredError } = await supabase.rpc("set_athlete_featured_medals", { p_medal_ids: selectedAwards });
+        if (featuredError) throw featuredError;
+      }
+      const byKey = new Map(medals.map((medal) => [medal.key, medal]));
+      const legacyKeys = selected.map((key) => {
+        if (key === "dorsalia-first-event") return key;
+        const medal = byKey.get(key);
+        const awardId = key.startsWith("award:") ? key.slice(6) : null;
+        return awardId && medal ? `${awardId}-${medal.imageUrl}` : key;
+      });
+      const { error: saveError } = await supabase.from("athlete_profiles").upsert({ ...(existing || {}), user_id: user.id, featured_medal_keys: legacyKeys, updated_at: new Date().toISOString() });
       if (saveError) throw saveError;
-      const { error: authError } = await supabase.auth.updateUser({ data: { featured_medal_keys: selected } });
+      const { error: authError } = await supabase.auth.updateUser({ data: { featured_medal_keys: legacyKeys } });
       if (authError) throw authError;
       router.push("/cuenta?tab=perfil");
       router.refresh();

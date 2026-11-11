@@ -19,7 +19,7 @@ import { highResolutionAvatar } from "@/lib/avatarImage";
 import { SettingsFieldsSkeleton } from "@/components/ui/Skeleton";
 import SuggestedPeople from "@/components/activity/SuggestedPeople";
 
-type UsernameState = "idle" | "checking" | "available" | "taken" | "invalid";
+type UsernameState = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
 
 export function OnboardingForm() {
   const { user, loading, refresh } = useAthleteAuth();
@@ -41,6 +41,7 @@ export function OnboardingForm() {
   const [ready, setReady] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const suggestingRef = useRef(false);
+  const ownedUsername = useRef("");
 
   useEffect(() => {
     if (loading || suggestingRef.current) return;
@@ -74,14 +75,16 @@ export function OnboardingForm() {
       ).trim();
       setFirstName(initialFirstName);
       setLastName(initialLastName);
+      const savedUsername = normalizeUsername(String(prof?.username || ""));
+      ownedUsername.current = savedUsername;
       setUsername(
-        normalizeUsername(
-          String(
-            prof?.username ||
+        savedUsername ||
+          normalizeUsername(
+            String(
               meta.username ||
-              `${initialFirstName || "runner"}_${initialLastName || user.id.slice(0, 6)}`,
+                `${initialFirstName || "runner"}_${initialLastName || user.id.slice(0, 6)}`,
+            ),
           ),
-        ),
       );
       setPhone(String(prof?.phone || "").trim());
       setGender(String(prof?.gender || "").trim());
@@ -98,6 +101,10 @@ export function OnboardingForm() {
       setUsernameState("invalid");
       return;
     }
+    if (ownedUsername.current && normalized === ownedUsername.current) {
+      setUsernameState("available");
+      return;
+    }
     setUsernameState("checking");
     const timer = window.setTimeout(async () => {
       const supabase = createClient();
@@ -105,7 +112,7 @@ export function OnboardingForm() {
         "username_available",
         { p_username: normalized },
       );
-      setUsernameState(!availabilityError && data === true ? "available" : "taken");
+      setUsernameState(availabilityError ? "error" : data === true ? "available" : "taken");
     }, 350);
     return () => window.clearTimeout(timer);
   }, [username, ready, user]);
@@ -130,10 +137,10 @@ export function OnboardingForm() {
       "username_available",
       { p_username: normalizedUsername },
     );
-    if (availabilityError || isAvailable !== true) {
+    if (ownedUsername.current !== normalizedUsername && (availabilityError || isAvailable !== true)) {
       setSaving(false);
-      setError("Ese username ya está ocupado. Elige otro.");
-      setUsernameState("taken");
+      setError(availabilityError ? "No pudimos comprobar el username. Inténtalo de nuevo." : "Ese username ya está ocupado. Elige otro.");
+      setUsernameState(availabilityError ? "error" : "taken");
       return;
     }
     const { error: profileError } = await supabase.from("athlete_profiles").upsert({
@@ -246,7 +253,7 @@ export function OnboardingForm() {
             className={`mt-1.5 text-xs ${
               usernameState === "available"
                 ? "text-lime-300"
-                : usernameState === "taken" || usernameState === "invalid"
+                : usernameState === "taken" || usernameState === "invalid" || usernameState === "error"
                   ? "text-red-400"
                   : "text-white/40"
             }`}
@@ -259,7 +266,9 @@ export function OnboardingForm() {
                   ? "Ese username ya está ocupado"
                   : usernameState === "invalid"
                     ? usernameError(normalizeUsername(username))
-                    : "Será tu enlace público en dorsalia.run/perfil/username"}
+                    : usernameState === "error"
+                      ? "No pudimos comprobarlo. Puedes intentar continuar."
+                      : "Será tu enlace público en dorsalia.run/perfil/username"}
           </p>
         </Field>
         <Field label="Teléfono">
@@ -307,7 +316,7 @@ export function OnboardingForm() {
         <Button
           variant="primary"
           type="submit"
-          disabled={saving || usernameState !== "available"}
+          disabled={saving || usernameState === "checking" || usernameState === "taken" || usernameState === "invalid" || usernameState === "idle"}
           fullWidth
         >
           {saving ? "Guardando…" : "Continuar"}

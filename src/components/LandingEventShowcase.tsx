@@ -29,6 +29,11 @@ export default function LandingEventShowcase({ race }: { race: PublicRace }) {
       return [{ key: route.key || url, url, label: route.medal_label || route.label || "Modalidad" }];
     });
   }, [routes]);
+  const promotionalMedals = useMemo(() => (race.promotional_medals || []).slice(0, 6).map((medal) => ({
+    key: `promo-${medal.id}`,
+    url: medal.image_url,
+    label: medal.name,
+  })).filter((medal) => medal.url), [race.promotional_medals]);
   const image = "/landing/event-card-social-run.webp";
   const organizerImage = race.organizer_logo_url || race.logo_url || "";
   const organizer = race.organizer_name || "Organizador en Dorsalia";
@@ -90,6 +95,16 @@ export default function LandingEventShowcase({ race }: { race: PublicRace }) {
           <h4 className="text-[22px] font-semibold leading-tight text-white">Modalidades</h4>
           <div className="mt-4 flex flex-wrap items-end gap-4">
             {medals.map((medal) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={medal.key} src={medal.url} alt={medal.label} className="h-[88px] w-auto object-contain" />
+            ))}
+          </div>
+        </section> : null}
+
+        {promotionalMedals.length ? <section className="mt-8">
+          <h4 className="text-[22px] font-semibold leading-tight text-white">Medallas especiales</h4>
+          <div className="mt-4 flex flex-wrap items-end gap-4">
+            {promotionalMedals.map((medal) => (
               // eslint-disable-next-line @next/next/no-img-element
               <img key={medal.key} src={medal.url} alt={medal.label} className="h-[88px] w-auto object-contain" />
             ))}

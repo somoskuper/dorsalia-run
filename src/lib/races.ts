@@ -13,6 +13,17 @@ export type OrganizerTeamMember = {
   contact_email?: string | null;
 };
 
+export type PublicPromotionalMedal = {
+  id: string;
+  name: string;
+  description?: string | null;
+  image_url: string;
+  sponsor_name?: string | null;
+  sponsor_logo_url?: string | null;
+  destination_url?: string | null;
+  sort_order?: number;
+};
+
 export type PublicRace = {
   id: string;
   workspace_id?: string | null;
@@ -74,6 +85,7 @@ export type PublicRace = {
   organizer_slug?: string | null;
   organizer_team?: OrganizerTeamMember[] | null;
   routes?: PublicEventRoute[] | null;
+  promotional_medals?: PublicPromotionalMedal[] | null;
   lifecycle_status?: "active" | "inactive" | "finalized" | string | null;
   listing_type?: "indexed" | "verified" | "native" | string | null;
   external_registration_url?: string | null;

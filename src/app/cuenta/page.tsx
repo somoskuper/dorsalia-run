@@ -102,6 +102,14 @@ type EventMeta = {
   web: string | null;
 };
 
+type MedalAward = {
+  id: string;
+  name: string;
+  image_url: string;
+  source_type: "route" | "promotional" | "platform_badge";
+  featured_sort_order?: number | null;
+};
+
 type TabId = "historial" | "guardados" | "perfil";
 
 export default function CuentaPage() {
@@ -131,6 +139,7 @@ export default function CuentaPage() {
     Record<string, { url: string; label: string }[]>
   >({});
   const [eventMetaIndex, setEventMetaIndex] = useState<Record<string, EventMeta>>({});
+  const [medalAwards, setMedalAwards] = useState<MedalAward[] | null>(null);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseListItem | null>(null);
   const [accountDataReady, setAccountDataReady] = useState(false);
   const [photographer, setPhotographer] = useState(false);
@@ -166,11 +175,12 @@ export default function CuentaPage() {
     const meta = user.user_metadata || {};
     const supabase = createClient();
     (async () => {
-      const [{ data: prof }, { data: regs }, { data: reviewRows }, { data: creator }] = await Promise.all([
+      const [{ data: prof }, { data: regs }, { data: reviewRows }, { data: creator }, awardsResult] = await Promise.all([
         supabase.from("athlete_profiles").select("*").eq("user_id", userId).maybeSingle(),
         supabase.rpc("athlete_my_registrations"),
         supabase.rpc("athlete_my_reviews"),
         supabase.from("creator_profiles").select("creator_type,is_active").eq("user_id", userId).maybeSingle(),
+        supabase.rpc("athlete_my_medals"),
       ]);
       const nextProfile: Profile =
         (prof as Profile) || {
@@ -213,6 +223,7 @@ export default function CuentaPage() {
       setPurchases(Array.isArray(regs) ? (regs as unknown as Purchase[]) : []);
       setReviews(Array.isArray(reviewRows) ? (reviewRows as unknown as AthleteReview[]) : []);
       setPhotographer(creator?.creator_type === "photographer" && creator.is_active === true);
+      setMedalAwards(!awardsResult.error && Array.isArray(awardsResult.data) ? awardsResult.data as MedalAward[] : null);
       setAccountDataReady(true);
     })();
     // Only reload when the signed-in user changes — not on every metadata updateUser.
@@ -375,6 +386,25 @@ export default function CuentaPage() {
   }, [purchases]);
 
   const profileMedals = useMemo(() => {
+    if (medalAwards !== null) {
+      const fromLedger = medalAwards
+        .filter((award) => award.id && award.image_url)
+        .map((award) => ({
+          key: `award:${award.id}`,
+          label: award.name || "Medalla conseguida",
+          imageUrl: award.image_url,
+          completed: true,
+        }));
+      if (user?.user_metadata?.dorsalia_first_event_badge === true) {
+        fromLedger.unshift({
+          key: "dorsalia-first-event",
+          label: "Primer evento en Dorsalia",
+          imageUrl: "/assetsdev/primer-evento-dorsalia.webp",
+          completed: true,
+        });
+      }
+      return fromLedger;
+    }
     const now = Date.now();
     const out: {
       key: string;
@@ -448,9 +478,16 @@ export default function CuentaPage() {
       out.push({ key, label: "Medalla conseguida", imageUrl, completed: true });
     }
     return out;
-  }, [purchases, raceMedalIndex, user?.user_metadata?.dorsalia_first_event_badge, profile?.featured_medal_keys]);
+  }, [purchases, raceMedalIndex, user?.user_metadata?.dorsalia_first_event_badge, profile?.featured_medal_keys, medalAwards]);
 
   const featuredMedalKeys = useMemo(() => {
+    if (medalAwards !== null) {
+      return [...medalAwards]
+        .filter((award) => award.featured_sort_order != null)
+        .sort((a, b) => Number(a.featured_sort_order) - Number(b.featured_sort_order))
+        .map((award) => `award:${award.id}`)
+        .slice(0, 3);
+    }
     const fromProfile = profile?.featured_medal_keys;
     const storedKeys = Array.isArray(fromProfile)
       ? fromProfile.map(String)
@@ -459,7 +496,7 @@ export default function CuentaPage() {
         : [];
     if (Array.isArray(fromProfile) || Array.isArray(user?.user_metadata?.featured_medal_keys)) return storedKeys.slice(0, 3);
     return null;
-  }, [profile, user]);
+  }, [profile, user, medalAwards]);
 
   const displayedMedals = useMemo(() => {
     if (!featuredMedalKeys) return profileMedals.slice(0, 3);
@@ -600,8 +637,9 @@ export default function CuentaPage() {
 
   function openEditProfile() {
     if (!profile) return;
-    const keys =
-      featuredMedalKeys && featuredMedalKeys.length
+    const keys = medalAwards !== null
+      ? (featuredMedalKeys || []).slice(0, MAX_FEATURED_MEDALS)
+      : featuredMedalKeys && featuredMedalKeys.length
         ? featuredMedalKeys.slice(0, MAX_FEATURED_MEDALS)
         : profileMedals.slice(0, MAX_FEATURED_MEDALS).map((m) => m.key);
     setEditDraft({
@@ -649,7 +687,31 @@ export default function CuentaPage() {
     const bio = editDraft.bio.trim().slice(0, 150);
     const residenceRaw = editDraft.residence.trim();
     const residence = isMxState(residenceRaw) ? residenceRaw : "";
-    const featured_medal_keys = editDraft.featuredMedalKeys.slice(0, MAX_FEATURED_MEDALS);
+    const selectedMedalKeys = editDraft.featuredMedalKeys.slice(0, MAX_FEATURED_MEDALS);
+    const medalByKey = new Map(profileMedals.map((medal) => [medal.key, medal]));
+    const selectedAwardIds = selectedMedalKeys
+      .filter((key) => key.startsWith("award:"))
+      .map((key) => key.slice(6));
+    const featured_medal_keys = selectedMedalKeys.map((key) => {
+      if (key === "dorsalia-first-event") return key;
+      const medal = medalByKey.get(key);
+      const awardId = key.startsWith("award:") ? key.slice(6) : null;
+      return awardId && medal ? `${awardId}-${medal.imageUrl}` : key;
+    });
+    if (medalAwards !== null) {
+      const { error: featuredError } = await supabase.rpc("set_athlete_featured_medals", {
+        p_medal_ids: selectedAwardIds,
+      });
+      if (featuredError) {
+        setSaving(false);
+        setMsg(featuredError.message || "No se pudieron guardar las medallas destacadas.");
+        return;
+      }
+      setMedalAwards((current) => current?.map((award) => ({
+        ...award,
+        featured_sort_order: selectedAwardIds.includes(award.id) ? selectedAwardIds.indexOf(award.id) : null,
+      })) ?? current);
+    }
     const full_name = [first_name, last_name].filter(Boolean).join(" ");
 
     const next: Profile = {

@@ -75,7 +75,10 @@ export async function GET(request: Request) {
       const onboarded = !profileError && isAthleteOnboarded(meta, prof);
 
       if (!onboarded) {
-        return NextResponse.redirect(`${origin}/`);
+        const setup = new URL("/onboarding", origin);
+        if (reviewIntent) setup.searchParams.set("intent", "review");
+        setup.searchParams.set("next", next);
+        return NextResponse.redirect(setup);
       }
     } else {
       return NextResponse.redirect(`${origin}/auth?error=oauth_session`);

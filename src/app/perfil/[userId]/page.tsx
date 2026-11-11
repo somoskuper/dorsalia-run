@@ -18,6 +18,7 @@ export default function PublicAthleteProfilePage() {
   const [profile, setProfile] = useState<PublicAthleteProfile | null>(null);
   const [ratingCount, setRatingCount] = useState(0);
   const [photographer, setPhotographer] = useState(false);
+  const [ledgerMedals, setLedgerMedals] = useState<ProfileMedal[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,12 +31,19 @@ export default function PublicAthleteProfilePage() {
       const nextProfile = data && typeof data === "object" ? data as PublicAthleteProfile : null;
       setProfile(nextProfile);
       if (nextProfile?.user_id) {
-        const [{ data: count }, { data: creator }] = await Promise.all([
+        const [{ data: count }, { data: creator }, { data: featuredAwards }] = await Promise.all([
           supabase.rpc("public_athlete_rating_count", { p_user_id: nextProfile.user_id }),
           supabase.from("creator_profiles").select("creator_type,is_active").eq("user_id", nextProfile.user_id).maybeSingle(),
+          supabase.rpc("public_athlete_featured_medals", { p_user_id: nextProfile.user_id }),
         ]);
         setRatingCount(Number(count) || 0);
         setPhotographer(creator?.creator_type === "photographer" && creator.is_active === true);
+        setLedgerMedals((Array.isArray(featuredAwards) ? featuredAwards : []).map((award: { id?: string; name?: string; image_url?: string }) => ({
+          key: `award:${String(award.id || "")}`,
+          label: String(award.name || "Medalla conseguida"),
+          imageUrl: String(award.image_url || ""),
+          completed: true,
+        })).filter((medal) => medal.imageUrl.startsWith("/") || medal.imageUrl.startsWith("http")));
       }
       setLoading(false);
       if (UUID_PATTERN.test(identifier) && nextProfile?.username) {
@@ -47,12 +55,13 @@ export default function PublicAthleteProfilePage() {
   if (loading) return <ProfileSectionSkeleton ownProfile={false} />;
   if (!profile) return <main className="min-h-screen bg-[#070707] px-5 py-24 text-center"><p className="text-white/55">Este perfil no está disponible.</p><Link href="/" className="mt-5 inline-block font-bold text-[#c9f24b]">Volver a Dorsalia</Link></main>;
 
-  const featuredMedals: ProfileMedal[] = (profile.featured_medal_keys || []).map((key) => ({
+  const legacyFeaturedMedals: ProfileMedal[] = (profile.featured_medal_keys || []).map((key) => ({
     key,
     label: key === "dorsalia-first-event" ? "Primer evento en Dorsalia" : "Medalla conseguida",
     imageUrl: key === "dorsalia-first-event" ? "/assetsdev/primer-evento-dorsalia.webp" : key.replace(/^[0-9a-f-]{36}-/i, ""),
     completed: true,
   })).filter((medal) => medal.imageUrl.startsWith("/") || medal.imageUrl.startsWith("http"));
+  const featuredMedals = ledgerMedals.length ? ledgerMedals : legacyFeaturedMedals;
 
   return <AccountProfileView
     displayName={profile.display_name}

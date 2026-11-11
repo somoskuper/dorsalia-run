@@ -29,6 +29,7 @@ export type PublicEventRoute = {
   pricing_phases?: Array<{ id?: string; name?: string; price?: number; starts_at?: string; ends_at?: string }> | null;
   map?: PublicRouteMap | null;
   medal_id?: string | null;
+  medal_mode?: "automatic" | "manual" | "none";
   medal_image_url?: string | null;
   medal_label?: string | null;
 };
